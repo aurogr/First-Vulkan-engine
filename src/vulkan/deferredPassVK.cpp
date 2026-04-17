@@ -164,7 +164,7 @@ VkCommandBuffer DeferredPassVK::draw(const Frame& i_frame)
     clear_values[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clear_values[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clear_values[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-    clear_values[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } }; 
+    clear_values[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clear_values[4].depthStencil = { 1.0f, 0 };
 
     render_pass_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
@@ -297,12 +297,12 @@ void DeferredPassVK::createRenderPass()
     // Depth  attachment
     attachments[4].format = m_depth_buffer.m_format;
     attachments[4].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachments[4].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachments[4].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[4].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[4].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[4].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachments[4].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    attachments[4].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachments[4].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[4].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
 
     VkAttachmentReference color_reference = {};
@@ -416,10 +416,14 @@ void DeferredPassVK::createPipelines()
     VkPipelineDepthStencilStateCreateInfo depth_stencil{};
     depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depth_stencil.depthTestEnable = VK_TRUE;
-    depth_stencil.depthWriteEnable = VK_FALSE;
+    depth_stencil.depthWriteEnable = VK_TRUE;
     depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     depth_stencil.depthBoundsTestEnable = VK_FALSE;
     depth_stencil.stencilTestEnable = VK_FALSE;
+    depth_stencil.minDepthBounds = 0.0f; // Optional
+    depth_stencil.maxDepthBounds = 1.0f;
+    depth_stencil.front = {}; // Optional
+    depth_stencil.back = {}; // Optional
     depth_stencil.flags = 0;
 
 
