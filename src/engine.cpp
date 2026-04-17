@@ -260,7 +260,7 @@ void Engine::createRenderPasses ()
     }
     m_render_passes.clear();
 
-    auto depth_pass = std::make_shared<DepthPassVK>(
+    auto depth_pass = std::make_shared<DepthPrePassVK>(
         m_runtime,
         m_render_target_attachments.m_depth_attachment
     );
@@ -280,7 +280,13 @@ void Engine::createRenderPasses ()
     m_render_passes.push_back( gbuffer_pass );
 
 
-    auto composition_pass = std::make_shared<CompositionPassVK>( m_runtime, m_render_target_attachments.m_color_attachment, m_render_target_attachments.m_position_depth_attachment, m_render_target_attachments.m_normal_attachment, m_render_target_attachments.m_material_attachment, m_runtime.m_renderer->getWindow().getSwapChainImages() );
+    auto composition_pass = std::make_shared<CompositionPassVK>( 
+        m_runtime, 
+        m_render_target_attachments.m_color_attachment,
+        m_render_target_attachments.m_position_depth_attachment,
+        m_render_target_attachments.m_normal_attachment, 
+        m_render_target_attachments.m_material_attachment,
+        m_runtime.m_renderer->getWindow().getSwapChainImages() );
     composition_pass->initialize();
 
     m_render_passes.push_back( composition_pass );

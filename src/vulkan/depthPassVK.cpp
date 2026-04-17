@@ -46,24 +46,13 @@ bool DepthPrePassVK::initialize()
     {
         VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader("./shaders/vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 
-        { // difuse
-            VkPipelineShaderStageCreateInfo vert_shader{};
-            vert_shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            vert_shader.stage = VK_SHADER_STAGE_VERTEX_BIT;
-            vert_shader.module = vert_module;
-            vert_shader.pName = "main";
+        VkPipelineShaderStageCreateInfo vert_shader{};
+        vert_shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vert_shader.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vert_shader.module = vert_module;
+        vert_shader.pName = "main";
 
-            m_pipelines[static_cast<uint32_t>(Material::TMaterial::Diffuse)].m_shader_stage = vert_shader;
-        }
-        { // microfacets
-            VkPipelineShaderStageCreateInfo vert_shader{};
-            vert_shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            vert_shader.stage = VK_SHADER_STAGE_VERTEX_BIT;
-            vert_shader.module = vert_module;
-            vert_shader.pName = "main";
-
-            m_pipelines[static_cast<uint32_t>(Material::TMaterial::Microfacets)].m_shader_stage = vert_shader;
-        }
+        m_pipeline.m_shader_stage = vert_shader;
     }
 
     createRenderPass();
@@ -91,13 +80,10 @@ void DepthPrePassVK::shutdown()
 
     vkDestroyDescriptorPool(renderer.getDevice()->getLogicalDevice(), m_descriptor_pool, nullptr);
 
-    for (auto& pipeline : m_pipelines)
-    {
-        vkDestroyDescriptorSetLayout(renderer.getDevice()->getLogicalDevice(), pipeline.m_descriptor_set_layout[0], nullptr);
-        vkDestroyDescriptorSetLayout(renderer.getDevice()->getLogicalDevice(), pipeline.m_descriptor_set_layout[1], nullptr);
-        vkDestroyPipeline(renderer.getDevice()->getLogicalDevice(), pipeline.m_pipeline, nullptr);
-        vkDestroyPipelineLayout(renderer.getDevice()->getLogicalDevice(), pipeline.m_pipeline_layouts, nullptr);
-    }
+    vkDestroyDescriptorSetLayout(renderer.getDevice()->getLogicalDevice(), m_pipeline.m_descriptor_set_layout[0], nullptr);
+    vkDestroyDescriptorSetLayout(renderer.getDevice()->getLogicalDevice(), m_pipeline.m_descriptor_set_layout[1], nullptr);
+    vkDestroyPipeline(renderer.getDevice()->getLogicalDevice(), m_pipeline.m_pipeline, nullptr);
+    vkDestroyPipelineLayout(renderer.getDevice()->getLogicalDevice(), m_pipeline.m_pipeline_layouts, nullptr);
 
 
     for (uint32 id = 0; id < static_cast<uint32>(renderer.getWindow().getImageCount()); id++)
@@ -146,23 +132,25 @@ VkCommandBuffer DepthPrePassVK::draw(const Frame& i_frame)
         throw MiniEngineException("failed to begin recording command buffer!");
     }
 
-    UtilsVK::beginRegion(current_cmd, "GBuffer Pass", Vector4f(0.0f, 0.5f, 0.0f, 1.0f));
+    UtilsVK::beginRegion(current_cmd, "Depth Pass", Vector4f(0.0f, 0.5f, 0.0f, 1.0f));
     vkCmdBeginRenderPass(current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
-    for (uint32_t mat_id = static_cast<uint32_t>(Material::TMaterial::Diffuse); mat_id < static_cast<uint32_t>(m_pipelines.size()); mat_id++)
+    UtilsVK::beginRegion(current_cmd, "Depth Pass", Vector4f(0.0f, 0.5f, 0.5f, 1.0f));
+
+    vkCmdBindPipeline(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.m_pipeline);
+    vkCmdBindDescriptorSets(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.m_pipeline_layouts, 0, 2, &m_pipeline.m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_per_frame_descriptor, 0, nullptr);
+
+    for (auto entity : m_entities_to_draw[0])
     {
-        UtilsVK::beginRegion(current_cmd, mat_id == 0 ? "Diffuse GBuffer Pass" : mat_id == 1 ? "Dielectric GBuffer Pass" : "Microfacets GBuffer Pass", Vector4f(0.0f, 0.5f, 0.5f, 1.0f));
-
-        vkCmdBindPipeline(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[mat_id].m_pipeline);
-        vkCmdBindDescriptorSets(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[mat_id].m_pipeline_layouts, 0, 2, &m_pipelines[mat_id].m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_per_frame_descriptor, 0, nullptr);
-
-        for (auto entity : m_entities_to_draw[mat_id])
-        {
-            entity->draw(current_cmd, i_frame);
-        }
-
-        UtilsVK::endRegion(current_cmd);
+        entity->draw(current_cmd, i_frame);
     }
+
+    for (auto entity : m_entities_to_draw[1])
+    {
+        entity->draw(current_cmd, i_frame);
+    }
+
+    UtilsVK::endRegion(current_cmd);
 
     vkCmdEndRenderPass(current_cmd);
     UtilsVK::endRegion(current_cmd);
@@ -234,7 +222,6 @@ void DepthPrePassVK::createRenderPass()
     depth_reference.attachment = 0;
     depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-
     VkSubpassDescription subpass_description = {};
     subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass_description.colorAttachmentCount = 0;
@@ -249,21 +236,6 @@ void DepthPrePassVK::createRenderPass()
     // Subpass dependencies for layout transitions
     std::array<VkSubpassDependency, 2> dependencies;
 
-    //dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-    //dependencies[0].dstSubpass = 0;
-    //dependencies[0].srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    //dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    //dependencies[0].srcAccessMask = 0;
-    //dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    //dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    //dependencies[1].srcSubpass = 0;
-    //dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-    //dependencies[1].srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    //dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    //dependencies[1].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    //dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    //dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
     dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass = 0;
     dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
@@ -339,12 +311,11 @@ void DepthPrePassVK::createPipelines()
     VkPipelineDepthStencilStateCreateInfo depth_stencil{};
     depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depth_stencil.depthTestEnable = VK_TRUE;
-    depth_stencil.depthWriteEnable = VK_FALSE;
+    depth_stencil.depthWriteEnable = VK_TRUE;
     depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     depth_stencil.depthBoundsTestEnable = VK_FALSE;
     depth_stencil.stencilTestEnable = VK_FALSE;
     depth_stencil.flags = 0;
-
 
     VkPipelineRasterizationStateCreateInfo raster_info{};
     raster_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -402,50 +373,47 @@ void DepthPrePassVK::createPipelines()
     //create unfiorms 
     createDescriptorLayout();
 
-    for (auto& pipeline : m_pipelines)
+    VkPipelineLayoutCreateInfo pipeline_layout_info{};
+    pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_info.setLayoutCount = m_pipeline.m_descriptor_set_layout.size();
+    pipeline_layout_info.pSetLayouts = m_pipeline.m_descriptor_set_layout.data();
+    pipeline_layout_info.pPushConstantRanges = VK_NULL_HANDLE;
+    pipeline_layout_info.pushConstantRangeCount = 0;
+    pipeline_layout_info.flags = 0;
+
+    std::vector<VkGraphicsPipelineCreateInfo> graphic_pipelines;
+
+
+    if (vkCreatePipelineLayout(renderer.getDevice()->getLogicalDevice(), &pipeline_layout_info, nullptr, &m_pipeline.m_pipeline_layouts) != VK_SUCCESS)
     {
-        VkPipelineLayoutCreateInfo pipeline_layout_info{};
-        pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipeline_layout_info.setLayoutCount = pipeline.m_descriptor_set_layout.size();
-        pipeline_layout_info.pSetLayouts = pipeline.m_descriptor_set_layout.data();
-        pipeline_layout_info.pPushConstantRanges = VK_NULL_HANDLE;
-        pipeline_layout_info.pushConstantRangeCount = 0;
-        pipeline_layout_info.flags = 0;
+        throw MiniEngineException("failed to create pipeline layout!");
+    }
 
-        std::vector<VkGraphicsPipelineCreateInfo> graphic_pipelines;
+    VkGraphicsPipelineCreateInfo pipeline_info{};
+    pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipeline_info.layout = m_pipeline.m_pipeline_layouts;
+    pipeline_info.renderPass = m_render_pass;
+    pipeline_info.basePipelineIndex = -1;
+    pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
+    pipeline_info.pInputAssemblyState = &input_assembly;
+    pipeline_info.pRasterizationState = &raster_info;
+    pipeline_info.pColorBlendState = &color_blending;
+    pipeline_info.pMultisampleState = &multisampling;
+    pipeline_info.pViewportState = &viewport_state;
+    pipeline_info.pDepthStencilState = &depth_stencil;
+    pipeline_info.pDynamicState = VK_NULL_HANDLE;
+    pipeline_info.stageCount = 1;
+    pipeline_info.pStages = &m_pipeline.m_shader_stage;
+    pipeline_info.flags = 0;
+    pipeline_info.pVertexInputState = &vertex_input_info;
+    pipeline_info.subpass = 0;
 
-
-        if (vkCreatePipelineLayout(renderer.getDevice()->getLogicalDevice(), &pipeline_layout_info, nullptr, &pipeline.m_pipeline_layouts) != VK_SUCCESS)
-        {
-            throw MiniEngineException("failed to create pipeline layout!");
-        }
-
-        VkGraphicsPipelineCreateInfo pipeline_info{};
-        pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipeline_info.layout = pipeline.m_pipeline_layouts;
-        pipeline_info.renderPass = m_render_pass;
-        pipeline_info.basePipelineIndex = -1;
-        pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
-        pipeline_info.pInputAssemblyState = &input_assembly;
-        pipeline_info.pRasterizationState = &raster_info;
-        pipeline_info.pColorBlendState = &color_blending;
-        pipeline_info.pMultisampleState = &multisampling;
-        pipeline_info.pViewportState = &viewport_state;
-        pipeline_info.pDepthStencilState = &depth_stencil;
-        pipeline_info.pDynamicState = VK_NULL_HANDLE;
-        pipeline_info.stageCount = 1;
-        pipeline_info.pStages = &pipeline.m_shader_stage;
-        pipeline_info.flags = 0;
-        pipeline_info.pVertexInputState = &vertex_input_info;
-        pipeline_info.subpass = 0;
-
-        graphic_pipelines.push_back(pipeline_info);
+    graphic_pipelines.push_back(pipeline_info);
 
 
-        if (vkCreateGraphicsPipelines(renderer.getDevice()->getLogicalDevice(), VK_NULL_HANDLE, 1, graphic_pipelines.data(), nullptr, &pipeline.m_pipeline))
-        {
-            throw MiniEngineException("Error creating the pipeline");
-        }
+    if (vkCreateGraphicsPipelines(renderer.getDevice()->getLogicalDevice(), VK_NULL_HANDLE, 1, graphic_pipelines.data(), nullptr, &m_pipeline.m_pipeline))
+    {
+        throw MiniEngineException("Error creating the pipeline");
     }
     createDescriptors();
 }
@@ -481,17 +449,14 @@ void DepthPrePassVK::createDescriptorLayout()
     set_per_object_info.flags = 0;
     set_per_object_info.pBindings = &per_object_binding;
 
-    for (auto& pipeline : m_pipelines)
+    if (VK_SUCCESS != vkCreateDescriptorSetLayout(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &set_per_frame_info, nullptr, &m_pipeline.m_descriptor_set_layout[0]))
     {
-        if (VK_SUCCESS != vkCreateDescriptorSetLayout(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &set_per_frame_info, nullptr, &pipeline.m_descriptor_set_layout[0]))
-        {
-            throw MiniEngineException("Error creating descriptor set");
-        }
+        throw MiniEngineException("Error creating descriptor set");
+    }
 
-        if (VK_SUCCESS != vkCreateDescriptorSetLayout(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &set_per_object_info, nullptr, &pipeline.m_descriptor_set_layout[1]))
-        {
-            throw MiniEngineException("Error creating descriptor set");
-        }
+    if (VK_SUCCESS != vkCreateDescriptorSetLayout(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &set_per_object_info, nullptr, &m_pipeline.m_descriptor_set_layout[1]))
+    {
+        throw MiniEngineException("Error creating descriptor set");
     }
 }
 
@@ -518,60 +483,57 @@ void DepthPrePassVK::createDescriptors()
     }
 
     //create descriptors for the global buffers
-    for (auto& pipeline : m_pipelines)
+    for (uint32_t id = 0; id < m_runtime.m_renderer->getWindow().getImageCount(); id++)
     {
-        for (uint32_t id = 0; id < m_runtime.m_renderer->getWindow().getImageCount(); id++)
-        {
 
-            //globals per frame
-            //allocate one descriptor set for each frame
-            VkDescriptorSetAllocateInfo alloc_per_frame_info = {};
-            alloc_per_frame_info.pNext = nullptr;
-            alloc_per_frame_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            alloc_per_frame_info.descriptorPool = m_descriptor_pool;
-            alloc_per_frame_info.descriptorSetCount = 1;
-            alloc_per_frame_info.pSetLayouts = &pipeline.m_descriptor_set_layout[0];
-            vkAllocateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_per_frame_info, &pipeline.m_descriptor_sets[id].m_per_frame_descriptor);
+        //globals per frame
+        //allocate one descriptor set for each frame
+        VkDescriptorSetAllocateInfo alloc_per_frame_info = {};
+        alloc_per_frame_info.pNext = nullptr;
+        alloc_per_frame_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        alloc_per_frame_info.descriptorPool = m_descriptor_pool;
+        alloc_per_frame_info.descriptorSetCount = 1;
+        alloc_per_frame_info.pSetLayouts = &m_pipeline.m_descriptor_set_layout[0];
+        vkAllocateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_per_frame_info, &m_pipeline.m_descriptor_sets[id].m_per_frame_descriptor);
 
-            //objects
-            //allocate one descriptor set for each frame
-            VkDescriptorSetAllocateInfo alloc_per_object_info = {};
-            alloc_per_object_info.pNext = nullptr;
-            alloc_per_object_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            alloc_per_object_info.descriptorPool = m_descriptor_pool;
-            alloc_per_object_info.descriptorSetCount = 1;
-            alloc_per_object_info.pSetLayouts = &pipeline.m_descriptor_set_layout[1];
-            vkAllocateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_per_object_info, &pipeline.m_descriptor_sets[id].m_per_object_descriptor);
+        //objects
+        //allocate one descriptor set for each frame
+        VkDescriptorSetAllocateInfo alloc_per_object_info = {};
+        alloc_per_object_info.pNext = nullptr;
+        alloc_per_object_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        alloc_per_object_info.descriptorPool = m_descriptor_pool;
+        alloc_per_object_info.descriptorSetCount = 1;
+        alloc_per_object_info.pSetLayouts = &m_pipeline.m_descriptor_set_layout[1];
+        vkAllocateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_per_object_info, &m_pipeline.m_descriptor_sets[id].m_per_object_descriptor);
 
-            //information about the buffer we want to point at in the descriptor
-            VkDescriptorBufferInfo binfo[2];
-            binfo[0].buffer = m_runtime.getPerFrameBuffer()[id];
-            binfo[0].offset = 0;
-            binfo[0].range = sizeof(PerFrameData);
+        //information about the buffer we want to point at in the descriptor
+        VkDescriptorBufferInfo binfo[2];
+        binfo[0].buffer = m_runtime.getPerFrameBuffer()[id];
+        binfo[0].offset = 0;
+        binfo[0].range = sizeof(PerFrameData);
 
-            binfo[1].buffer = m_runtime.getPerObjectBuffer()[id];
-            binfo[1].offset = 0;
-            binfo[1].range = sizeof(PerObjectData) * kMAX_NUMBER_OF_OBJECTS;
+        binfo[1].buffer = m_runtime.getPerObjectBuffer()[id];
+        binfo[1].offset = 0;
+        binfo[1].range = sizeof(PerObjectData) * kMAX_NUMBER_OF_OBJECTS;
 
-            VkWriteDescriptorSet set_write[2] = {};
-            set_write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            set_write[0].pNext = nullptr;
-            set_write[0].dstBinding = 0;
-            set_write[0].dstSet = pipeline.m_descriptor_sets[id].m_per_frame_descriptor;
-            set_write[0].descriptorCount = 1;
-            set_write[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            set_write[0].pBufferInfo = &binfo[0];
+        VkWriteDescriptorSet set_write[2] = {};
+        set_write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        set_write[0].pNext = nullptr;
+        set_write[0].dstBinding = 0;
+        set_write[0].dstSet = m_pipeline.m_descriptor_sets[id].m_per_frame_descriptor;
+        set_write[0].descriptorCount = 1;
+        set_write[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        set_write[0].pBufferInfo = &binfo[0];
 
-            set_write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            set_write[1].pNext = nullptr;
-            set_write[1].dstBinding = 0;
-            set_write[1].dstSet = pipeline.m_descriptor_sets[id].m_per_object_descriptor;
-            set_write[1].descriptorCount = 1;
-            set_write[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            set_write[1].pBufferInfo = &binfo[1];
+        set_write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        set_write[1].pNext = nullptr;
+        set_write[1].dstBinding = 0;
+        set_write[1].dstSet = m_pipeline.m_descriptor_sets[id].m_per_object_descriptor;
+        set_write[1].descriptorCount = 1;
+        set_write[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        set_write[1].pBufferInfo = &binfo[1];
 
-            vkUpdateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), 2, set_write, 0, nullptr);
+        vkUpdateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), 2, set_write, 0, nullptr);
 
-        }
     }
 }

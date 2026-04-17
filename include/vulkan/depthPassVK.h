@@ -38,7 +38,7 @@ namespace MiniEngine
             VkDescriptorSet m_per_object_descriptor;
         };
 
-        struct MaterialPipeline
+        struct DepthPipeline
         {
             // prepare the different render supported depending on the material
             VkPipeline                                                         m_pipeline;
@@ -48,7 +48,7 @@ namespace MiniEngine
             VkPipelineShaderStageCreateInfo m_shader_stage;
         };
 
-        std::array<MaterialPipeline, 2> m_pipelines; //one by material
+        DepthPipeline m_pipeline; //one by material
 
         VkRenderPass                   m_render_pass;
         std::array<VkCommandBuffer, 3> m_command_buffer;
