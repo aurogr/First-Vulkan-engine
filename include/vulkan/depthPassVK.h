@@ -38,29 +38,24 @@ namespace MiniEngine
             VkDescriptorSet m_per_object_descriptor;
         };
 
-        struct MaterialPipeline
+        struct DepthPipeline
         {
-            // prepare the different render supported depending on the material
-            VkPipeline                                                         m_pipeline;
-            VkPipelineLayout                                                   m_pipeline_layouts;
-            std::array<VkDescriptorSetLayout, 2                    > m_descriptor_set_layout; //2 sets, per frame and per object
-            std::array<DescriptorsSets, 3                    > m_descriptor_sets;
-            std::array<VkPipelineShaderStageCreateInfo, 2                    > m_shader_stages;
+            VkPipeline                              m_pipeline;
+            VkPipelineLayout                        m_pipeline_layouts;
+            std::array<VkDescriptorSetLayout, 2 >   m_descriptor_set_layout; //2 sets, per frame and per object
+            std::array<DescriptorsSets, 3 >         m_descriptor_sets; // one per flame in flight
+            VkPipelineShaderStageCreateInfo         m_shader_stages; // only vertex
         };
 
-        std::array<MaterialPipeline, 2> m_pipelines; //one by material
+        DepthPipeline depth_pipeline; // just one pipeline, we don't care about materials on the depth pass
 
         VkRenderPass                   m_render_pass;
         std::array<VkCommandBuffer, 3> m_command_buffer;
-        std::array<VkFramebuffer, 3> m_fbos;
+        std::array<VkFramebuffer, 3> m_depth_fbos;
         VkDescriptorPool               m_descriptor_pool;
 
-        std::unordered_map<uint32_t, std::vector<EntityPtr>> m_entities_to_draw;
+        std::vector<EntityPtr> m_entities_to_draw;
 
         const ImageBlock m_depth_buffer;
-        const ImageBlock m_color_attachment;
-        const ImageBlock m_normals_attachment;
-        const ImageBlock m_position_attachment;
-        const ImageBlock m_material_attachment;
     };
 };

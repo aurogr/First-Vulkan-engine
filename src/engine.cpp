@@ -16,6 +16,7 @@
 #include "vulkan/rendererVK.h"
 #include "vulkan/renderPassVK.h"
 #include "vulkan/deferredPassVK.h"
+#include "vulkan/depthPassVK.h"
 #include "vulkan/compositionPassVK.h"
 #include "vulkan/windowVK.h"
 #include "vulkan/deviceVK.h"
@@ -258,7 +259,14 @@ void Engine::createRenderPasses ()
         pass->shutdown();
     }
     m_render_passes.clear();
-    
+
+    auto depth_pass = std::make_shared<DepthPassVK>(
+        m_runtime,
+        m_render_target_attachments.m_depth_attachment
+    );
+    depth_pass->initialize();
+
+    m_render_passes.push_back(depth_pass);
 
     auto gbuffer_pass = std::make_shared<DeferredPassVK>(
         m_runtime, 

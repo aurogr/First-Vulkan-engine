@@ -141,8 +141,14 @@ void RendererVK::createInstance()
         }
     }
 
+    const std::vector<const char*> validation_layers = {
+    "VK_LAYER_KHRONOS_validation"
+    };
+
     VkInstanceCreateInfo instance_create_info = {};
     instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    instance_create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
+    instance_create_info.ppEnabledLayerNames = validation_layers.data();
     instance_create_info.pNext = NULL;
     instance_create_info.pApplicationInfo = &app_info;
 
