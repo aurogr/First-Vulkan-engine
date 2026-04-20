@@ -4,3 +4,5 @@ C:\VulkanSDK\1.4.341.1\Bin\glslc.exe diffuse.frag -o diffuse.spv
 C:\VulkanSDK\1.4.341.1\Bin\glslc.exe pbr.frag -o pbr.spv
 C:\VulkanSDK\1.4.341.1\Bin\glslc.exe composition_v.vert -o composition_v.spv
 C:\VulkanSDK\1.4.341.1\Bin\glslc.exe composition_f.frag -o composition_f.spv
+C:\VulkanSDK\1.4.341.1\Bin\glslc.exe ssao_v.vert -o ssao_v.spv
+C:\VulkanSDK\1.4.341.1\Bin\glslc.exe ssao_f.frag -o ssao_f.spv

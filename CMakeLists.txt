@@ -56,7 +56,8 @@ include/vulkan/meshVK.h
 include/vulkan/renderPassVK.h
 include/vulkan/deferredPassVK.h
 include/vulkan/compositionPassVK.h
-include/vulkan/depthPassVK.h
+include/vulkan/depthPrePassVK.h
+include/vulkan/ssaoPassVK.h
 
 
 #CPPS
@@ -85,7 +86,8 @@ src/vulkan/meshVK.cpp
 #render passes
 src/vulkan/deferredPassVK.cpp
 src/vulkan/compositionPassVK.cpp
-src/vulkan/depthPassVK.cpp
+src/vulkan/depthPrePassVK.cpp
+src/vulkan/ssaoPassVK.cpp
 )
 
 

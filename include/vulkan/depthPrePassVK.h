@@ -40,19 +40,18 @@ namespace MiniEngine
 
         struct DepthPipeline
         {
-            // prepare the different render supported depending on the material
             VkPipeline                                                         m_pipeline;
             VkPipelineLayout                                                   m_pipeline_layouts;
-            std::array<VkDescriptorSetLayout, 2                    > m_descriptor_set_layout; //2 sets, per frame and per object
-            std::array<DescriptorsSets, 3                    > m_descriptor_sets;
-            VkPipelineShaderStageCreateInfo m_shader_stage;
+            std::array<VkDescriptorSetLayout, 2>                               m_descriptor_set_layout; //2 sets, per frame and per object
+            std::array<DescriptorsSets, 3>                                     m_descriptor_sets;
+            VkPipelineShaderStageCreateInfo                                    m_shader_stage;
         };
 
-        DepthPipeline m_pipeline; //one by material
+        DepthPipeline m_pipeline; // just one for depth, materials make no difference
 
         VkRenderPass                   m_render_pass;
         std::array<VkCommandBuffer, 3> m_command_buffer;
-        std::array<VkFramebuffer, 3> m_fbos;
+        std::array<VkFramebuffer, 3>   m_fbos;
         VkDescriptorPool               m_descriptor_pool;
 
         std::unordered_map<uint32_t, std::vector<EntityPtr>> m_entities_to_draw;
