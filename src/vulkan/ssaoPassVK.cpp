@@ -130,9 +130,6 @@ void SSAOPassVK::createKernelAndNoise()
         kernel[i] = Vector4f(s.x, s.y, s.z, 0.0f);
     }
 
-
-    VkDeviceMemory ssaoKernelMemory;
-
     UtilsVK::createBuffer(
         *m_runtime.m_renderer->getDevice(),
         kernel.size() * sizeof(Vector4f),
@@ -163,35 +160,17 @@ void SSAOPassVK::createKernelAndNoise()
         );
     }
 
-    UtilsVK::createImage(
+    UtilsVK::TextureFromBuffer(
         *m_runtime.m_renderer->getDevice(),
+        noise.data(),
+        noise.size() * sizeof(Vector4f),
         VK_FORMAT_R32G32B32A32_SFLOAT,
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        4,
-        4,
-        m_in_noiseImage
+        4, 4,
+        m_in_noiseImage,
+        VK_FILTER_NEAREST,
+        VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     );
-
-    // image sampler
-    VkSamplerCreateInfo sampler{};
-    sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler.magFilter = VK_FILTER_NEAREST;
-    sampler.minFilter = VK_FILTER_NEAREST;
-    sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler.mipLodBias = 0.0f;
-    sampler.maxAnisotropy = 1.0f;
-    sampler.minLod = 0.0f;
-    sampler.maxLod = 1.0f;
-    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-    if (VK_SUCCESS != vkCreateSampler(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &sampler, nullptr, &m_in_noiseImage.m_sampler))
-    {
-        throw MiniEngineException("Error creating sampler");
-    }
-
 }
 
 
@@ -203,6 +182,14 @@ void SSAOPassVK::shutdown()
     
     vkDestroyDescriptorPool     ( renderer.getDevice()->getLogicalDevice(), m_descriptor_pool      , nullptr );
     vkDestroyDescriptorSetLayout( renderer.getDevice()->getLogicalDevice(), m_descriptor_set_layout, nullptr );
+
+    vkDestroyBuffer(renderer.getDevice()->getLogicalDevice(), m_in_ssaoKernelBuffer, nullptr); 
+    vkFreeMemory(renderer.getDevice()->getLogicalDevice(), ssaoKernelMemory, nullptr);
+
+    vkDestroyImage(renderer.getDevice()->getLogicalDevice(), m_in_noiseImage.m_image, nullptr);
+    vkDestroyImageView(renderer.getDevice()->getLogicalDevice(), m_in_noiseImage.m_image_view, nullptr);
+    vkFreeMemory(renderer.getDevice()->getLogicalDevice(), m_in_noiseImage.m_memory, nullptr);
+    vkDestroySampler(renderer.getDevice()->getLogicalDevice(), m_in_noiseImage.m_sampler, nullptr);
 
     for( uint32 id = 0; id < static_cast<uint32>( renderer.getWindow().getImageCount() ); id++ )
     {

@@ -61,5 +61,6 @@ namespace MiniEngine
 
         ImageBlock m_in_noiseImage;
         VkBuffer m_in_ssaoKernelBuffer;
+        VkDeviceMemory ssaoKernelMemory;
     };
 };

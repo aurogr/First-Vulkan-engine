@@ -72,12 +72,13 @@ Matrix4f Camera::getView()
 }
 
 
-Matrix4f Camera::getProjection() 
+Matrix4f Camera::getProjection()
 {
-    if( m_dirty[ 1 ] )
+    if (m_dirty[1])
     {
-        m_camera_data.m_projection = m_is_perspective ? glm::perspective( m_fovy, static_cast<float>( m_width ) / static_cast<float>( m_height ), m_near, m_far ) : glm::ortho( m_left, m_right, m_bottom, m_top );
-        m_dirty[ 1 ] = false;
+        m_camera_data.m_projection = m_is_perspective ? glm::perspectiveRH_ZO(m_fovy, static_cast<float>(m_width) / static_cast<float>(m_height), m_near, m_far) : glm::ortho(m_left, m_right, m_bottom, m_top);
+        m_camera_data.m_projection[1][1] *= -1;
+        m_dirty[1] = false;
     }
     return m_camera_data.m_projection;
 }
