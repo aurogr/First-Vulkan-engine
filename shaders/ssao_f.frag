@@ -39,7 +39,7 @@ layout( set = 0, binding = 4 ) uniform kernel {
 
 layout(location = 0) out vec4 out_ssao;
 
-const float NOISE_SCALE = 4.0; // noise texture tiling (4x4)
+const vec2 NOISE_SCALE = vec2(800.0/4.0, 600.0/4.0); // noise texture tiling (4x4)
 const float KERNEL_SIZE = 64;
 const float RADIUS = 0.5;
 const float BIAS = 0.025;
@@ -68,13 +68,10 @@ void main()
         vec4 offset = vec4(samplePos, 1.0);
         offset = per_frame_data.m_projection * offset;
         offset.xyz /= offset.w;
-        offset.xyz /= offset.xyz * 0.5 + 0.5;
+        offset.xyz = offset.xyz * 0.5 + 0.5;
 
         // transform to [0.0, 1.0] range so we can use them to sample the position texture
         float sampleDepth = texture(i_position_and_depth, offset.xy).z; 
-
-        // check if the sample's current depth value is larger than the stored depth value and if so, we add to the final contribution factor
-        occlusion += (sampleDepth >= samplePos.z + BIAS ? 1.0 : 0.0); 
 
         // range check that makes sure a fragment contributes to the occlusion factor if its depth values is within the sample's radius
         float rangeCheck = smoothstep(0.0, 1.0, RADIUS / abs(fragPos.z - sampleDepth));
