@@ -18,6 +18,7 @@
 #include "vulkan/deferredPassVK.h"
 #include "vulkan/depthPrePassVK.h"
 #include "vulkan/ssaoPassVK.h"
+#include "vulkan/ssaoBlurPassVK.h"
 #include "vulkan/compositionPassVK.h"
 #include "vulkan/windowVK.h"
 #include "vulkan/deviceVK.h"
@@ -290,12 +291,21 @@ void Engine::createRenderPasses ()
 
     m_render_passes.push_back(ssao_pass);
 
+    auto ssao_blur_pass = std::make_shared<SSAOBlurPassVK>(
+        m_runtime,
+        m_render_target_attachments.m_ssao_attachment,
+        m_render_target_attachments.m_ssao_blur_attachment);
+    ssao_blur_pass->initialize();
+
+    m_render_passes.push_back(ssao_blur_pass);
+
     auto composition_pass = std::make_shared<CompositionPassVK>( 
         m_runtime, 
         m_render_target_attachments.m_color_attachment,
         m_render_target_attachments.m_position_depth_attachment,
         m_render_target_attachments.m_normal_attachment, 
         m_render_target_attachments.m_material_attachment,
+        m_render_target_attachments.m_ssao_blur_attachment,
         m_runtime.m_renderer->getWindow().getSwapChainImages() );
     composition_pass->initialize();
 

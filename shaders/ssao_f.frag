@@ -46,8 +46,10 @@ const float BIAS = 0.025;
 
 void main() 
 {
-    vec3 fragPos = texture(i_position_and_depth, f_uvs).xyz;
-    vec3 normal  = normalize(texture(i_normal, f_uvs).rgb);
+    vec3 fragPosWorld = texture(i_position_and_depth, f_uvs).xyz;
+    vec3 fragPos = (per_frame_data.m_view * vec4(fragPosWorld, 1.0)).xyz;
+    vec3 worldNormal = normalize( texture( i_normal, f_uvs ).rgb * 2.0 - 1.0 );  
+    vec3 normal = normalize(mat3(per_frame_data.m_view) * worldNormal);  
     vec3 randomVec = texture(i_noise, f_uvs * NOISE_SCALE).xyz;
 
     // (Gramm-Schmidt process) create an orthogonal basis, each time slightly tilted based on the value of randomVec
@@ -71,7 +73,8 @@ void main()
         offset.xyz = offset.xyz * 0.5 + 0.5;
 
         // transform to [0.0, 1.0] range so we can use them to sample the position texture
-        float sampleDepth = texture(i_position_and_depth, offset.xy).z; 
+        vec3 sampleDepthWorld = texture(i_position_and_depth, offset.xy).xyz; 
+        float sampleDepth = (per_frame_data.m_view * vec4(sampleDepthWorld, 1.0)).z;
 
         // range check that makes sure a fragment contributes to the occlusion factor if its depth values is within the sample's radius
         float rangeCheck = smoothstep(0.0, 1.0, RADIUS / abs(fragPos.z - sampleDepth));
