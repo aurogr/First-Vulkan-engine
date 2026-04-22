@@ -18,6 +18,7 @@ namespace MiniEngine
                             const ImageBlock& i_in_normal_attachment,
                             const ImageBlock& i_in_material_attachment,
                             const ImageBlock& i_in_ssao_blur_attachment,
+                            const ImageBlock& i_output_bloom_attachment,
                             const ImageBlock& i_output_hdr_attachment
                             //const std::array<ImageBlock, 3>& i_output_swap_images 
                           );
@@ -49,7 +50,7 @@ namespace MiniEngine
         // prepare the different render supported depending on the material
         VkPipeline                                                         m_composition_pipeline;
         VkPipelineLayout                                                   m_pipeline_layouts;
-        VkDescriptorSetLayout                                              m_descriptor_set_layout; //2 sets, per frame and per object
+        VkDescriptorSetLayout                                              m_descriptor_set_layout;
         VkDescriptorPool                                                   m_descriptor_pool;
         std::array<DescriptorsSets                , kMAX_NUMBER_OF_FRAMES> m_descriptor_sets;
         std::array<VkPipelineShaderStageCreateInfo, 2                    > m_shader_stages;
@@ -61,7 +62,7 @@ namespace MiniEngine
         ImageBlock m_in_normal_attachment;
         ImageBlock m_in_material_attachment;
         ImageBlock m_in_ssao_blur_attachment;
+        ImageBlock m_output_bloom_attachment;
         ImageBlock m_output_hdr_attachment;
-        //std::array<ImageBlock, 3> m_output_swap_images;
     };
 };

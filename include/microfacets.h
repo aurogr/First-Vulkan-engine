@@ -15,6 +15,7 @@ namespace MiniEngine
             float    m_roughness;
             float    m_metallic;
             Vector3f m_albedo;
+            Vector3f m_emissive;
         };
 
         explicit Microfacets( const Runtime& i_runtime ) : 

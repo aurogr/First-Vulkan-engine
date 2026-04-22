@@ -36,5 +36,10 @@ std::shared_ptr<Microfacets> Microfacets::createMaterial( const Runtime& i_runti
         microfacets->m_data.m_albedo = toVector3f( i_node.find_child_by_attribute( "name", "albedo" ).attribute( "value" ).value() );
     }
 
+    if (i_node.find_child_by_attribute("name", "emissive"))
+    {
+        microfacets->m_data.m_emissive = toVector3f(i_node.find_child_by_attribute("name", "emissive").attribute("value").value());
+    }
+
     return microfacets;
 }

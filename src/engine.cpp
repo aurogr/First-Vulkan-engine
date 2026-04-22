@@ -20,6 +20,7 @@
 #include "vulkan/ssaoPassVK.h"
 #include "vulkan/ssaoBlurPassVK.h"
 #include "vulkan/compositionPassVK.h"
+#include "vulkan/bloomPassVK.h"
 #include "vulkan/postProcessPassVK.h"
 #include "vulkan/windowVK.h"
 #include "vulkan/deviceVK.h"
@@ -307,15 +308,25 @@ void Engine::createRenderPasses ()
         m_render_target_attachments.m_normal_attachment,
         m_render_target_attachments.m_material_attachment,
         m_render_target_attachments.m_ssao_blur_attachment,
+        m_render_target_attachments.m_bloom_brightness_attachment,
         m_render_target_attachments.m_hdr_attachment);
-        //m_runtime.m_renderer->getWindow().getSwapChainImages() );
     composition_pass->initialize();
 
     m_render_passes.push_back( composition_pass );
 
+    auto bloom_pass = std::make_shared<BloomBlurPassVK>(
+        m_runtime,
+        m_render_target_attachments.m_bloom_brightness_attachment,
+        m_render_target_attachments.m_bloom_h_ping_pong_attachment,
+        m_render_target_attachments.m_bloom_v_ping_pong_attachment);
+    bloom_pass->initialize();
+
+    m_render_passes.push_back(bloom_pass);
+
     auto post_process_pass = std::make_shared<PostProcessPassVK>(
         m_runtime,
         m_render_target_attachments.m_hdr_attachment,
+        m_render_target_attachments.m_bloom_v_ping_pong_attachment,
         m_runtime.m_renderer->getWindow().getSwapChainImages() );
     post_process_pass->initialize();
 
@@ -402,6 +413,7 @@ void Engine::updateGlobalBuffers()
             {
                 Diffuse& diffuse = reinterpret_cast<Diffuse&>( entity->getMaterial() );
                 data_object->m_albedo  = Vector4f( diffuse.getData().m_albedo.x, diffuse.getData().m_albedo.y, diffuse.getData().m_albedo.z, 0.0f );
+                data_object->m_emissive  = Vector4f( diffuse.getData().m_emissive.x, diffuse.getData().m_emissive.y, diffuse.getData().m_emissive.z, 0.0f );
 
                 break;
             }
@@ -410,6 +422,7 @@ void Engine::updateGlobalBuffers()
                 Microfacets& microfacets = reinterpret_cast<Microfacets&>( entity->getMaterial() );
                 data_object->m_albedo             = Vector4f( microfacets.getData().m_albedo.x, microfacets.getData().m_albedo.y , microfacets.getData().m_albedo.z, 0.0f );
                 data_object->m_metallic_roughness = Vector4f( microfacets.getData().m_metallic, microfacets.getData().m_roughness,                             0.0f, 0.0f );
+                data_object->m_emissive           = Vector4f(microfacets.getData().m_emissive.x, microfacets.getData().m_emissive.y, microfacets.getData().m_emissive.z, 0.0f);
                 break;
             }
         }        
@@ -426,13 +439,16 @@ void Engine::createAttachments()
 
     m_runtime.m_renderer->getWindow().getWindowSize( width, height );
 
-    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8G8B8A8_UNORM     , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_color_attachment          );
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_color_attachment          );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8G8B8A8_UNORM     , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_normal_attachment         );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_position_depth_attachment );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8G8B8A8_UNORM     , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_material_attachment       );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_D32_SFLOAT_S8_UINT , VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, m_render_target_attachments.m_depth_attachment          );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8_UNORM           , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_ssao_attachment           );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8_UNORM           , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_ssao_blur_attachment      );
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_brightness_attachment      );
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width/2, height/2, m_render_target_attachments.m_bloom_h_ping_pong_attachment); // downsized
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width/2, height/2, m_render_target_attachments.m_bloom_v_ping_pong_attachment); // downsized
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_hdr_attachment            );
 
     m_render_target_attachments.m_color_attachment.m_sampler            = m_global_samplers[ 0 ];         
@@ -442,16 +458,22 @@ void Engine::createAttachments()
     m_render_target_attachments.m_depth_attachment.m_sampler            = m_global_samplers[ 0 ];         
     m_render_target_attachments.m_ssao_attachment.m_sampler             = m_global_samplers[ 0 ];          
     m_render_target_attachments.m_ssao_blur_attachment.m_sampler        = m_global_samplers[ 0 ]; 
+    m_render_target_attachments.m_bloom_brightness_attachment.m_sampler = m_global_samplers[ 0 ]; 
+    m_render_target_attachments.m_bloom_h_ping_pong_attachment.m_sampler= m_global_samplers[ 0 ];
+    m_render_target_attachments.m_bloom_v_ping_pong_attachment.m_sampler= m_global_samplers[ 0 ];
     m_render_target_attachments.m_hdr_attachment.m_sampler              = m_global_samplers[ 0 ]; 
 
-    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_color_attachment.m_image          ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Color Attachment"    );
-    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_normal_attachment.m_image         ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Normal Attachment "  );
-    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_position_depth_attachment.m_image ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Position Attachment ");
-    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_material_attachment.m_image       ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Material Attachment ");
-    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_depth_attachment.m_image          ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Depth Buffer"        );
-    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_ssao_attachment.m_image           ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image SSAO attachment"     );
-    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_ssao_blur_attachment.m_image      ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image SSAO blur "          );
-    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_hdr_attachment.m_image            ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image HDR "          );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_color_attachment.m_image               ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Color Attachment"    );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_normal_attachment.m_image              ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Normal Attachment "  );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_position_depth_attachment.m_image      ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Position Attachment ");
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_material_attachment.m_image            ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Material Attachment ");
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_depth_attachment.m_image               ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Depth Buffer"        );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_ssao_attachment.m_image                ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image SSAO attachment"     );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_ssao_blur_attachment.m_image           ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image SSAO blur "          );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_bloom_brightness_attachment.m_image    ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Bloom Brightness"          );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_bloom_h_ping_pong_attachment.m_image   ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Bloom Horizontal Ping-Pong"          );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_bloom_v_ping_pong_attachment.m_image   ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Bloom Vertical Ping-Pong"          );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_hdr_attachment.m_image                 ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image HDR "          );
 }
 
 
@@ -464,6 +486,9 @@ void Engine::destroyAttachments()
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_depth_attachment          );
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_ssao_attachment           );
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_ssao_blur_attachment      );
+    UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_bloom_brightness_attachment      );
+    UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_bloom_h_ping_pong_attachment);
+    UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_bloom_v_ping_pong_attachment);
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_hdr_attachment            );
 }
 

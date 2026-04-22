@@ -38,6 +38,7 @@
 		<string name="filename" value=".\scenes\cbox\meshes\sphere1.obj"/>
 		<bsdf type="diffuse">
 			<color name="albedo" value="0.725 0.71 0.68"/>
+			<color name="emissive" value="20 20 20"/>
 		</bsdf>
 	</mesh>
 

@@ -59,6 +59,7 @@ include/vulkan/compositionPassVK.h
 include/vulkan/depthPrePassVK.h
 include/vulkan/ssaoPassVK.h
 include/vulkan/ssaoBlurPassVK.h
+include/vulkan/bloomPassVK.h
 include/vulkan/postProcessPassVK.h
 
 #CPPS
@@ -90,6 +91,7 @@ src/vulkan/compositionPassVK.cpp
 src/vulkan/depthPrePassVK.cpp
 src/vulkan/ssaoPassVK.cpp
 src/vulkan/ssaoBlurPassVK.cpp
+src/vulkan/bloomPassVK.cpp
 src/vulkan/postProcessPassVK.cpp
 )
 

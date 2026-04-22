@@ -92,6 +92,9 @@ struct Attachments
     ImageBlock m_ssao_blur_attachment;
 
     // POST PROCESSING
+    ImageBlock m_bloom_brightness_attachment;
+    ImageBlock m_bloom_h_ping_pong_attachment;
+    ImageBlock m_bloom_v_ping_pong_attachment;
     ImageBlock m_hdr_attachment;
 };
 

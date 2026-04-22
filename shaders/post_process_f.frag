@@ -2,7 +2,8 @@
 
 layout( location = 0 ) in vec2 f_uvs;
 
-layout ( set = 0, binding = 1 ) uniform sampler2D i_hdr;
+layout ( set = 0, binding = 0 ) uniform sampler2D i_hdr;
+layout ( set = 0, binding = 1 ) uniform sampler2D i_bloom;
 
 layout(location = 0) out vec4 out_color;
 
@@ -26,6 +27,9 @@ void main()
     out_color = vec4( pow( mapped, vec3( 1.0f / gamma ) ), 1.0 );*/
       
     vec3 hdr_color = texture(i_hdr, f_uvs).rgb;
+    vec3 bloom_color = texture(i_bloom, f_uvs).rgb;
+
+    hdr_color += bloom_color; // additive blending
 
     // exposure
     float exposure = 1.0f;

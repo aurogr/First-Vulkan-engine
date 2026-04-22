@@ -17,10 +17,12 @@ using namespace MiniEngine;
 PostProcessPassVK::PostProcessPassVK(
     const Runtime& i_runtime,
     const ImageBlock& i_in_hdr_attachment,
+    const ImageBlock& i_in_bloom_blur_attachment,
     const std::array<ImageBlock, 3>& i_output_swap_images 
                           ) :
     RenderPassVK( i_runtime ),
     m_in_hdr_attachment       (i_in_hdr_attachment),
+    m_in_bloom_blur_attachment       (i_in_bloom_blur_attachment),
     m_output_swap_images      (i_output_swap_images ) 
 {
     for( auto cmd : m_command_buffer )
@@ -421,7 +423,7 @@ void PostProcessPassVK::createDescriptorLayout()
     layout_bindings[ 0 ] = {};
     layout_bindings[ 0 ].binding                      = 0;
     layout_bindings[ 0 ].descriptorCount              = 1;
-    layout_bindings[ 0 ].descriptorType               = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layout_bindings[ 0 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     layout_bindings[ 0 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     layout_bindings[ 1 ] = {};
@@ -449,7 +451,6 @@ void PostProcessPassVK::createDescriptors()
     //create a descriptor pool that will hold 10 uniform buffers
     std::vector<VkDescriptorPoolSize> sizes =
     {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER        , 10 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10 }
     };
 
@@ -478,16 +479,14 @@ void PostProcessPassVK::createDescriptors()
 
         vkAllocateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_per_frame_info, &m_descriptor_sets[ i ].m_textures_descriptor );
 
-        //information about the buffer we want to point at in the descriptor
-        VkDescriptorBufferInfo binfo;
-        binfo.buffer    = m_runtime.getPerFrameBuffer()[ i ];
-        binfo.offset    = 0;
-        binfo.range     = sizeof( PerFrameData );
-
-        std::array<VkDescriptorImageInfo, 1> image_infos;
+        std::array<VkDescriptorImageInfo, 2> image_infos;
         image_infos[ 0 ].sampler     = m_in_hdr_attachment.m_sampler;
         image_infos[ 0 ].imageView   = m_in_hdr_attachment.m_image_view;
         image_infos[ 0 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        image_infos[ 1 ].sampler     = m_in_bloom_blur_attachment.m_sampler;
+        image_infos[ 1 ].imageView   = m_in_bloom_blur_attachment.m_image_view;
+        image_infos[ 1 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         std::array<VkWriteDescriptorSet, 2> set_write;
 
@@ -497,9 +496,8 @@ void PostProcessPassVK::createDescriptors()
         set_write[ 0 ].dstBinding        = 0;
         set_write[ 0 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
         set_write[ 0 ].descriptorCount   = 1;
-        set_write[ 0 ].descriptorType    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        set_write[ 0 ].pImageInfo        = nullptr;
-        set_write[ 0 ].pBufferInfo       = &binfo;
+        set_write[ 0 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        set_write[ 0 ].pImageInfo        = &image_infos[ 0 ];
 
         set_write[ 1 ]                   = {};
         set_write[ 1 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

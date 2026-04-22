@@ -13,6 +13,7 @@ namespace MiniEngine
         struct Data
         {
             Vector3f m_albedo;
+            Vector3f m_emissive;
         };
         
 

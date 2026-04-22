@@ -31,6 +31,7 @@ namespace MiniEngine
         //for now we only have material data
         alignas( 16 ) Matrix4f m_model;
         alignas( 16 ) Vector4f m_albedo; 
+        alignas( 16 ) Vector4f m_emissive; 
         alignas( 16 ) Vector4f m_metallic_roughness;
     };
 

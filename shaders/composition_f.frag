@@ -35,53 +35,8 @@ layout ( set = 0, binding = 3 ) uniform sampler2D i_normal;
 layout ( set = 0, binding = 4 ) uniform sampler2D i_material;
 layout ( set = 0, binding = 5 ) uniform sampler2D i_ssao_blur;
 
-
 layout(location = 0) out vec4 out_color;
-
-
-vec3 evalDiffuse()
-{
-    vec4  albedo       = texture( i_albedo  , f_uvs );
-    vec3  n            = normalize( texture( i_normal, f_uvs ).rgb * 2.0 - 1.0 );    
-    vec3  frag_pos     = texture( i_position_and_depth, f_uvs ).xyz;
-    float AmbientOcclusion = texture(i_ssao_blur, f_uvs).r;
-    vec3  shading = vec3( 0.0 );
-
-
-    for( uint id_light = 0; id_light < per_frame_data.m_number_of_lights; id_light++ )
-    {
-        LightData light = per_frame_data.m_lights[ id_light ];
-        uint light_type = uint( floor( light.m_light_pos.a ) );
-
-        switch( light_type )
-        {
-            case 0: //directional
-            {
-                vec3 l = normalize( light.m_light_pos.xyz );
-                shading += max( dot( n, l ), 0.0 ) * albedo.rgb;
-                break;
-            }
-            case 1: //point
-            {
-                vec3 l = light.m_light_pos.xyz - frag_pos;
-                float dist = length( l );
-                l = l/dist;
-                float att = 1.0 / (light.m_attenuattion.x + light.m_attenuattion.y * dist + light.m_attenuattion.z * dist * dist );
-                vec3 radiance = light.m_radiance.rgb * att;
-
-                shading += max( dot( n, l ), 0.0 ) * albedo.rgb * radiance;
-                break;
-            }
-            case 2: //ambient
-            {
-                shading += light.m_radiance.rgb * albedo.rgb * AmbientOcclusion;
-                break;
-            }
-        }
-    }
-
-    return shading;
-}
+layout(location = 1) out vec4 out_bloom;
 
 float d_ggx_throwbridge_reitz(float NdotH, float roughness){
     float alpha = roughness * roughness;
@@ -135,8 +90,6 @@ vec3 shadeMicrofacets(vec3 v, vec3 l, vec3 n, float metallic, float roughness, v
 
 vec3 evalMicrofacets(){
     vec4 albedo       = texture( i_albedo  , f_uvs );
-    vec3 albedoLinear = pow(albedo.rgb, vec3(2.2)); 
-    albedo = vec4(albedoLinear, albedo.a);
     vec3  n            = normalize( texture( i_normal, f_uvs ).rgb * 2.0 - 1.0 );    
     vec3  frag_pos     = texture( i_position_and_depth, f_uvs ).xyz;
     float metallic = texture(i_material, f_uvs ).y;
@@ -187,10 +140,14 @@ vec3 evalMicrofacets(){
 
 void main() 
 {
-    /*float gamma = 2.2f;
-    float exposure = 1.0f;
-    vec3 mapped = vec3( 1.0f ) - exp(-evalMicrofacets() * exposure);
+    vec3 hdr_color = evalMicrofacets();
+    
+    out_color = vec4(hdr_color, 1.0f);
 
-    out_color = vec4( pow( mapped, vec3( 1.0f / gamma ) ), 1.0 );*/
-    out_color = vec4(evalMicrofacets(), 1.0f);
+    float brightness = dot(hdr_color, vec3(0.2126, 0.7152, 0.0722)); // Luminance calculation
+    if (brightness > 1.0) {
+        out_bloom = vec4(hdr_color, 1.0); // Store bright areas for bloom
+    } else {
+        out_bloom = vec4(0.0); // No bloom contribution
+    }
 }
