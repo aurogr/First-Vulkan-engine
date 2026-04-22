@@ -63,8 +63,9 @@ vec3 evalDiffuse()
             }
             case 1: //point
             {
-                vec3 l = normalize(light.m_light_pos.xyz - frag_pos);
+                vec3 l = light.m_light_pos.xyz - frag_pos;
                 float dist = length( l );
+                l = l/dist;
                 float att = 1.0 / (light.m_attenuattion.x + light.m_attenuattion.y * dist + light.m_attenuattion.z * dist * dist );
                 vec3 radiance = light.m_radiance.rgb * att;
 
@@ -133,7 +134,9 @@ vec3 shadeMicrofacets(vec3 v, vec3 l, vec3 n, float metallic, float roughness, v
 }
 
 vec3 evalMicrofacets(){
-    vec4  albedo       = texture( i_albedo  , f_uvs );
+    vec4 albedo       = texture( i_albedo  , f_uvs );
+    vec3 albedoLinear = pow(albedo.rgb, vec3(2.2)); 
+    albedo = vec4(albedoLinear, albedo.a);
     vec3  n            = normalize( texture( i_normal, f_uvs ).rgb * 2.0 - 1.0 );    
     vec3  frag_pos     = texture( i_position_and_depth, f_uvs ).xyz;
     float metallic = texture(i_material, f_uvs ).y;
@@ -162,6 +165,7 @@ vec3 evalMicrofacets(){
             {
                 vec3 l = light.m_light_pos.xyz - frag_pos;
                 float dist = length( l );
+                l = l/dist;
                 float att = 1.0 / (light.m_attenuattion.x + light.m_attenuattion.y * dist + light.m_attenuattion.z * dist * dist );
                 vec3 radiance = light.m_radiance.rgb * att;
                 
@@ -183,9 +187,10 @@ vec3 evalMicrofacets(){
 
 void main() 
 {
-    float gamma = 2.2f;
+    /*float gamma = 2.2f;
     float exposure = 1.0f;
     vec3 mapped = vec3( 1.0f ) - exp(-evalMicrofacets() * exposure);
 
-    out_color = vec4( pow( mapped, vec3( 1.0f / gamma ) ), 1.0 );
+    out_color = vec4( pow( mapped, vec3( 1.0f / gamma ) ), 1.0 );*/
+    out_color = vec4(evalMicrofacets(), 1.0f);
 }

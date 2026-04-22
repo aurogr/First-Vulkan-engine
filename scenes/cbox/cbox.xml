@@ -37,24 +37,25 @@
 	<mesh type="obj">
 		<string name="filename" value=".\scenes\cbox\meshes\sphere1.obj"/>
 		<bsdf type="diffuse">
-			<color name="albedo" value="0.5 0.5 0.5"/>
+			<color name="albedo" value="0.725 0.71 0.68"/>
 		</bsdf>
 	</mesh>
 
 	<mesh type="obj">
 		<string name="filename" value=".\scenes\cbox\meshes\sphere2.obj"/>
 		<bsdf type="diffuse">
-			<color name="albedo" value="0.5 0.5 0.5"/>
+			<color name="albedo" value="0.725 0.71 0.68"/>
 		</bsdf>
 	</mesh>
 
 	<emitter type="ambient">
-		<radiance name="radiance" value="0.5 0.5 0.5"/>
+		<radiance name="radiance" value="0.1 0.1 0.1"/>
 	</emitter>
 
-	<emitter type="directional">
-		<position name="direction" value="0.0 1.0 0.0"/>
+	<emitter type="point">
+		<position name="position" value="0.0 2 0.0"/>
 		<radiance name="radiance" value="1.0 1.0 1.0"/>
+		<attenuation name="attenuation" value="1.0 0.09 0.032"/>
 	</emitter>
 
 	<camera type="perspective">

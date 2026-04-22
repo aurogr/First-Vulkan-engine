@@ -1,6 +1,6 @@
 #include "common.h"
 #include "vulkan/utilsVK.h"
-#include "vulkan/compositionPassVK.h"
+#include "vulkan/postProcessPassVK.h"
 #include "vulkan/rendererVK.h"
 #include "vulkan/deviceVK.h"
 #include "vulkan/windowVK.h"
@@ -14,24 +14,14 @@
 using namespace MiniEngine;
 
 
-CompositionPassVK::CompositionPassVK(                             
+PostProcessPassVK::PostProcessPassVK(
     const Runtime& i_runtime,
-    const ImageBlock& i_in_color_attachment,
-    const ImageBlock& i_in_position_depth_attachment,
-    const ImageBlock& i_in_normal_attachment,
-    const ImageBlock& i_in_material_attachment,
-    const ImageBlock& i_in_ssao_blur_attachment,
-    const ImageBlock& i_output_hdr_attachment
-    //const std::array<ImageBlock, 3>& i_output_swap_images 
+    const ImageBlock& i_in_hdr_attachment,
+    const std::array<ImageBlock, 3>& i_output_swap_images 
                           ) :
     RenderPassVK( i_runtime ),
-    m_in_color_attachment         ( i_in_color_attachment     ),
-    m_in_position_depth_attachment( i_in_position_depth_attachment ),
-    m_in_normal_attachment        ( i_in_normal_attachment    ),
-    m_in_material_attachment      ( i_in_material_attachment  ),
-    m_in_ssao_blur_attachment     ( i_in_ssao_blur_attachment),
-    m_output_hdr_attachment       (i_output_hdr_attachment)
-    //m_output_swap_images( i_output_swap_images ) 
+    m_in_hdr_attachment       (i_in_hdr_attachment),
+    m_output_swap_images      (i_output_swap_images ) 
 {
     for( auto cmd : m_command_buffer )
     {
@@ -40,12 +30,12 @@ CompositionPassVK::CompositionPassVK(
 }
 
 
-CompositionPassVK::~CompositionPassVK()
+PostProcessPassVK::~PostProcessPassVK()
 {
 }
 
 
-bool CompositionPassVK::initialize()
+bool PostProcessPassVK::initialize()
 {
     RendererVK& renderer = *m_runtime.m_renderer;
 
@@ -58,7 +48,7 @@ bool CompositionPassVK::initialize()
     {
         { // difuse
             VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader( "./shaders/composition_v.spv", VK_SHADER_STAGE_VERTEX_BIT   );
-            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader( "./shaders/composition_f.spv", VK_SHADER_STAGE_FRAGMENT_BIT );
+            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader( "./shaders/post_process_f.spv", VK_SHADER_STAGE_FRAGMENT_BIT );
 
             assert( VK_NULL_HANDLE != vert_module && VK_NULL_HANDLE != frag_module );
 
@@ -96,7 +86,7 @@ bool CompositionPassVK::initialize()
 }
 
 
-void CompositionPassVK::shutdown()
+void PostProcessPassVK::shutdown()
 {
     RendererVK& renderer = *m_runtime.m_renderer;
 
@@ -117,7 +107,7 @@ void CompositionPassVK::shutdown()
 }
 
 
-VkCommandBuffer CompositionPassVK::draw( const Frame& i_frame)
+VkCommandBuffer PostProcessPassVK::draw( const Frame& i_frame)
 {
     RendererVK& renderer = *m_runtime.m_renderer;
 
@@ -174,7 +164,7 @@ VkCommandBuffer CompositionPassVK::draw( const Frame& i_frame)
 
 
 
-void CompositionPassVK::createFbo()
+void PostProcessPassVK::createFbo()
 {
     RendererVK& renderer = *m_runtime.m_renderer;
 
@@ -184,7 +174,7 @@ void CompositionPassVK::createFbo()
     for( size_t i = 0; i < m_fbos.size(); i++ )
     {
         std::array<VkImageView, 1> attachments;
-        attachments[ 0 ] = m_output_hdr_attachment.m_image_view; // Color attachment is the view of the swapchain image
+        attachments[ 0 ] = m_output_swap_images[i].m_image_view; // Color attachment is the view of the swapchain image
 
         VkFramebufferCreateInfo framebuffer_create_info = {};
         framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -206,20 +196,20 @@ void CompositionPassVK::createFbo()
 
 
 
-void CompositionPassVK::createRenderPass()
+void PostProcessPassVK::createRenderPass()
 {
     RendererVK& renderer = *m_runtime.m_renderer;
 
     std::array<VkAttachmentDescription, 1> attachments = {};
     // Color attachment
-    attachments[ 0 ].format         = m_output_hdr_attachment.m_format;
+    attachments[ 0 ].format         = m_output_swap_images[0].m_format;
     attachments[ 0 ].samples        = VK_SAMPLE_COUNT_1_BIT;
     attachments[ 0 ].loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[ 0 ].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[ 0 ].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     attachments[ 0 ].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachments[ 0 ].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachments[ 0 ].finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[ 0 ].finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
     VkAttachmentReference color_reference = {};
     color_reference.attachment = 0;
@@ -260,7 +250,7 @@ void CompositionPassVK::createRenderPass()
 }
 
 
-void CompositionPassVK::createPipelines()
+void PostProcessPassVK::createPipelines()
 {
     RendererVK& renderer = *m_runtime.m_renderer;
     
@@ -423,9 +413,9 @@ void CompositionPassVK::createPipelines()
 }
 
 
-void CompositionPassVK::createDescriptorLayout()
+void PostProcessPassVK::createDescriptorLayout()
 {
-    std::array<VkDescriptorSetLayoutBinding, 6> layout_bindings;
+    std::array<VkDescriptorSetLayoutBinding, 2> layout_bindings;
 
     ////// PER FRAME
     layout_bindings[ 0 ] = {};
@@ -439,31 +429,6 @@ void CompositionPassVK::createDescriptorLayout()
     layout_bindings[ 1 ].descriptorCount              = 1;
     layout_bindings[ 1 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     layout_bindings[ 1 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    layout_bindings[ 2 ] = {};
-    layout_bindings[ 2 ].binding                      = 2;
-    layout_bindings[ 2 ].descriptorCount              = 1;
-    layout_bindings[ 2 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layout_bindings[ 2 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    layout_bindings[ 3 ] = {};
-    layout_bindings[ 3 ].binding                      = 3;
-    layout_bindings[ 3 ].descriptorCount              = 1;
-    layout_bindings[ 3 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layout_bindings[ 3 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    layout_bindings[ 4 ] = {};
-    layout_bindings[ 4 ].binding                      = 4;
-    layout_bindings[ 4 ].descriptorCount              = 1;
-    layout_bindings[ 4 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layout_bindings[ 4 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    layout_bindings[ 5 ] = {};
-    layout_bindings[ 5 ].binding                      = 5;
-    layout_bindings[ 5 ].descriptorCount              = 1;
-    layout_bindings[ 5 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layout_bindings[ 5 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
-
 
     VkDescriptorSetLayoutCreateInfo set_attachment_color_info = {};
     set_attachment_color_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -479,7 +444,7 @@ void CompositionPassVK::createDescriptorLayout()
 }
 
 
-void CompositionPassVK::createDescriptors()
+void PostProcessPassVK::createDescriptors()
 {
     //create a descriptor pool that will hold 10 uniform buffers
     std::vector<VkDescriptorPoolSize> sizes =
@@ -519,29 +484,12 @@ void CompositionPassVK::createDescriptors()
         binfo.offset    = 0;
         binfo.range     = sizeof( PerFrameData );
 
-        std::array<VkDescriptorImageInfo, 5> image_infos;
-        image_infos[ 0 ].sampler     = m_in_color_attachment.m_sampler;
-        image_infos[ 0 ].imageView   = m_in_color_attachment.m_image_view;
+        std::array<VkDescriptorImageInfo, 1> image_infos;
+        image_infos[ 0 ].sampler     = m_in_hdr_attachment.m_sampler;
+        image_infos[ 0 ].imageView   = m_in_hdr_attachment.m_image_view;
         image_infos[ 0 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        image_infos[ 1 ].sampler     = m_in_position_depth_attachment.m_sampler;
-        image_infos[ 1 ].imageView   = m_in_position_depth_attachment.m_image_view;
-        image_infos[ 1 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-        image_infos[ 2 ].sampler     = m_in_normal_attachment.m_sampler;
-        image_infos[ 2 ].imageView   = m_in_normal_attachment.m_image_view;
-        image_infos[ 2 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-        image_infos[ 3 ].sampler     = m_in_material_attachment.m_sampler;
-        image_infos[ 3 ].imageView   = m_in_material_attachment.m_image_view;
-        image_infos[ 3 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-        image_infos[ 4 ].sampler     = m_in_ssao_blur_attachment.m_sampler;
-        image_infos[ 4 ].imageView   = m_in_ssao_blur_attachment.m_image_view;
-        image_infos[ 4 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-
-        std::array<VkWriteDescriptorSet, 6> set_write;
+        std::array<VkWriteDescriptorSet, 2> set_write;
 
         set_write[ 0 ]                   = {};
         set_write[ 0 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -561,42 +509,6 @@ void CompositionPassVK::createDescriptors()
         set_write[ 1 ].descriptorCount   = 1;
         set_write[ 1 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         set_write[ 1 ].pImageInfo        = &image_infos[ 0 ];
-
-        set_write[ 2 ]                   = {};
-        set_write[ 2 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        set_write[ 2 ].pNext             = nullptr;
-        set_write[ 2 ].dstBinding        = 2;
-        set_write[ 2 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
-        set_write[ 2 ].descriptorCount   = 1;
-        set_write[ 2 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        set_write[ 2 ].pImageInfo        = &image_infos[ 1 ];
-
-        set_write[ 3 ]                   = {};
-        set_write[ 3 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        set_write[ 3 ].pNext             = nullptr;
-        set_write[ 3 ].dstBinding        = 3;
-        set_write[ 3 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
-        set_write[ 3 ].descriptorCount   = 1;
-        set_write[ 3 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        set_write[ 3 ].pImageInfo        = &image_infos[ 2 ];
-
-        set_write[ 4 ]                   = {};
-        set_write[ 4 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        set_write[ 4 ].pNext             = nullptr;
-        set_write[ 4 ].dstBinding        = 4;
-        set_write[ 4 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
-        set_write[ 4 ].descriptorCount   = 1;
-        set_write[ 4 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        set_write[ 4 ].pImageInfo        = &image_infos[ 3 ];
-
-        set_write[ 5 ]                   = {};
-        set_write[ 5 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        set_write[ 5 ].pNext             = nullptr;
-        set_write[ 5 ].dstBinding        = 5;
-        set_write[ 5 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
-        set_write[ 5 ].descriptorCount   = 1;
-        set_write[ 5 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        set_write[ 5 ].pImageInfo        = &image_infos[ 4 ];
 
         vkUpdateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr );
     }

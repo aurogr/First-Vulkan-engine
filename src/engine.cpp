@@ -20,6 +20,7 @@
 #include "vulkan/ssaoPassVK.h"
 #include "vulkan/ssaoBlurPassVK.h"
 #include "vulkan/compositionPassVK.h"
+#include "vulkan/postProcessPassVK.h"
 #include "vulkan/windowVK.h"
 #include "vulkan/deviceVK.h"
 #include "vulkan/utilsVK.h"
@@ -299,17 +300,26 @@ void Engine::createRenderPasses ()
 
     m_render_passes.push_back(ssao_blur_pass);
 
-    auto composition_pass = std::make_shared<CompositionPassVK>( 
-        m_runtime, 
+    auto composition_pass = std::make_shared<CompositionPassVK>(
+        m_runtime,
         m_render_target_attachments.m_color_attachment,
         m_render_target_attachments.m_position_depth_attachment,
-        m_render_target_attachments.m_normal_attachment, 
+        m_render_target_attachments.m_normal_attachment,
         m_render_target_attachments.m_material_attachment,
         m_render_target_attachments.m_ssao_blur_attachment,
-        m_runtime.m_renderer->getWindow().getSwapChainImages() );
+        m_render_target_attachments.m_hdr_attachment);
+        //m_runtime.m_renderer->getWindow().getSwapChainImages() );
     composition_pass->initialize();
 
     m_render_passes.push_back( composition_pass );
+
+    auto post_process_pass = std::make_shared<PostProcessPassVK>(
+        m_runtime,
+        m_render_target_attachments.m_hdr_attachment,
+        m_runtime.m_renderer->getWindow().getSwapChainImages() );
+    post_process_pass->initialize();
+
+    m_render_passes.push_back(post_process_pass);
 
 
     if( m_scene )
@@ -423,6 +433,7 @@ void Engine::createAttachments()
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_D32_SFLOAT_S8_UINT , VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, width, height, m_render_target_attachments.m_depth_attachment          );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8_UNORM           , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_ssao_attachment           );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8_UNORM           , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_ssao_blur_attachment      );
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_hdr_attachment            );
 
     m_render_target_attachments.m_color_attachment.m_sampler            = m_global_samplers[ 0 ];         
     m_render_target_attachments.m_normal_attachment.m_sampler           = m_global_samplers[ 0 ];        
@@ -431,6 +442,7 @@ void Engine::createAttachments()
     m_render_target_attachments.m_depth_attachment.m_sampler            = m_global_samplers[ 0 ];         
     m_render_target_attachments.m_ssao_attachment.m_sampler             = m_global_samplers[ 0 ];          
     m_render_target_attachments.m_ssao_blur_attachment.m_sampler        = m_global_samplers[ 0 ]; 
+    m_render_target_attachments.m_hdr_attachment.m_sampler              = m_global_samplers[ 0 ]; 
 
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_color_attachment.m_image          ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Color Attachment"    );
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_normal_attachment.m_image         ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Normal Attachment "  );
@@ -439,6 +451,7 @@ void Engine::createAttachments()
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_depth_attachment.m_image          ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Depth Buffer"        );
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_ssao_attachment.m_image           ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image SSAO attachment"     );
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_ssao_blur_attachment.m_image      ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image SSAO blur "          );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_hdr_attachment.m_image            ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image HDR "          );
 }
 
 
@@ -451,6 +464,7 @@ void Engine::destroyAttachments()
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_depth_attachment          );
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_ssao_attachment           );
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_ssao_blur_attachment      );
+    UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_hdr_attachment            );
 }
 
 

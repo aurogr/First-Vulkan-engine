@@ -90,6 +90,9 @@ struct Attachments
     //ADDITIONAL RENDER TARGET
     ImageBlock m_ssao_attachment;
     ImageBlock m_ssao_blur_attachment;
+
+    // POST PROCESSING
+    ImageBlock m_hdr_attachment;
 };
 
 };
