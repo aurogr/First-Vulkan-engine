@@ -140,11 +140,13 @@ vec3 evalMicrofacets(){
 
 void main() 
 {
+    vec4 albedo       = texture( i_albedo  , f_uvs );
     vec3 hdr_color = evalMicrofacets();
     
     out_color = vec4(hdr_color, 1.0f);
 
-    float brightness = dot(hdr_color, vec3(0.2126, 0.7152, 0.0722)); // Luminance calculation
+    float brightness = dot(albedo.rgb, vec3(0.2126, 0.7152, 0.0722)); // Luminance calculation
+                                                                      // we take the albedo because it is an emissive material, so it is the one that contributes to bloom, not the shaded color
     if (brightness > 1.0) {
         out_bloom = vec4(hdr_color, 1.0); // Store bright areas for bloom
     } else {

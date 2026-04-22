@@ -38,7 +38,7 @@
 		<string name="filename" value=".\scenes\cbox\meshes\sphere1.obj"/>
 		<bsdf type="diffuse">
 			<color name="albedo" value="0.725 0.71 0.68"/>
-			<color name="emissive" value="40 40 0"/>
+			<color name="emissive" value="10 10 10"/>
 		</bsdf>
 	</mesh>
 
@@ -54,8 +54,8 @@
 	</emitter>
 
 	<emitter type="point">
-		<position name="position" value="0.0 2 0.0"/>
-		<radiance name="radiance" value="1.0 1.0 1.0"/>
+		<position name="position" value="-2.0 1 0.0"/>
+		<radiance name="radiance" value="0.5 0.5 0.5"/>
 		<attenuation name="attenuation" value="1.0 0.09 0.032"/>
 	</emitter>
 

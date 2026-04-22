@@ -134,77 +134,57 @@ VkCommandBuffer BloomBlurPassVK::draw( const Frame& i_frame)
     }
 
     bool firstPass = true;
+	const uint32_t BLUR_PASS_COUNT = 3; // number of blur passes to perform (more passes = blurrier result)
 
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < BLUR_PASS_COUNT; i++)
     {
+	    // ----- PASS 1 : HORIZONTAL BLUR -----
+        UtilsVK::beginRegion(current_cmd, "Bloom Horizontal", Vector4f(0.5f, 0.0f, 0.0f, 1.0f));
 
+        VkRenderPassBeginInfo render_pass_info{};
+        render_pass_info.sType                = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        render_pass_info.renderPass           = m_render_pass;
+        render_pass_info.framebuffer          = m_fbos[ renderer.getWindow().getCurrentImageId()].m_fbo_horizontal;
+        render_pass_info.renderArea.offset    = { 0, 0 };
+        render_pass_info.renderArea.extent    = { width, height };
+        render_pass_info.clearValueCount = 1;
+        render_pass_info.pClearValues = &clear_value;
 
-	// ----- PASS 1 : HORIZONTAL BLUR -----
-    UtilsVK::beginRegion(current_cmd, "Bloom Horizontal", Vector4f(0.5f, 0.0f, 0.0f, 1.0f));
+        vkCmdBeginRenderPass( current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE );
+        vkCmdBindPipeline( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_composition_pipeline );
 
-    VkRenderPassBeginInfo render_pass_info{};
-    render_pass_info.sType                = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_info.renderPass           = m_render_pass;
-    render_pass_info.framebuffer          = m_fbos[ renderer.getWindow().getCurrentImageId()].m_fbo_horizontal;
-    render_pass_info.renderArea.offset    = { 0, 0 };
-    render_pass_info.renderArea.extent    = { width, height };
-    render_pass_info.clearValueCount = 1;
-    render_pass_info.pClearValues = &clear_value;
-
-    vkCmdBeginRenderPass( current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE );
-    vkCmdBindPipeline( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_composition_pipeline );
-
-    // Push constant: horizontal = true
-    uint32_t is_horizontal = 1;
-    vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &is_horizontal);
-	// Bind the descriptor set for the horizontal blur pass
-	VkDescriptorSet descriptorSetHorizontal = firstPass ? m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_descriptor_horizontal_first_pass : m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_descriptor_horizontal;
-    vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &descriptorSetHorizontal, 0, NULL);
+        // Push constant: horizontal = true
+        uint32_t is_horizontal = 1;
+        vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &is_horizontal);
+	    // Bind the descriptor set for the horizontal blur pass
+	    VkDescriptorSet descriptorSetHorizontal = firstPass ? m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_descriptor_horizontal_first_pass : m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_descriptor_horizontal;
+        vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &descriptorSetHorizontal, 0, NULL);
 				
-    m_plane->draw( current_cmd, 0 );
+        m_plane->draw( current_cmd, 0 );
     
-    vkCmdEndRenderPass( current_cmd );
-    UtilsVK::endRegion( current_cmd );
+        vkCmdEndRenderPass( current_cmd );
+        UtilsVK::endRegion( current_cmd );
 
-	// ---- BARRIER -------- 
- //   // Transition output of the horizontal blur to be shader-readable for the vertical blur pass
- //   VkImageSubresourceRange range{};
- //   range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
- //   range.baseMipLevel = 0;
- //   range.levelCount = 1;
- //   range.baseArrayLayer = 0;
- //   range.layerCount = 1;
+	    // ----- PASS 2 : VERTICAL BLUR -----
 
- //   UtilsVK::setImageLayout(
- //       current_cmd,
- //       m_output_h_ping_pong_attachment.m_image,
- //       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
- //       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
- //       range,
- //       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
- //       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-	//);
+        UtilsVK::beginRegion(current_cmd, "Bloom Vertical", Vector4f(0.5f, 0.0f, 0.0f, 1.0f));
 
-	// ----- PASS 2 : VERTICAL BLUR -----
+        render_pass_info.framebuffer = m_fbos[renderer.getWindow().getCurrentImageId()].m_fbo_vertical;
 
-    UtilsVK::beginRegion(current_cmd, "Bloom Horizontal", Vector4f(0.5f, 0.0f, 0.0f, 1.0f));
+        vkCmdBeginRenderPass(current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_composition_pipeline);
+	    // Push constant: horizontal = false
+	    is_horizontal = 0;
+	    vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &is_horizontal);
+        // Bind the descriptor set for the horizontal blur pass
+        vkCmdBindDescriptorSets(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_descriptor_vertical, 0, NULL);
 
-    render_pass_info.framebuffer = m_fbos[renderer.getWindow().getCurrentImageId()].m_fbo_vertical;
+        m_plane->draw(current_cmd, 0);
 
-    vkCmdBeginRenderPass(current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_composition_pipeline);
-	// Push constant: horizontal = false
-	is_horizontal = 0;
-	vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &is_horizontal);
-    // Bind the descriptor set for the horizontal blur pass
-    vkCmdBindDescriptorSets(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_descriptor_vertical, 0, NULL);
+        vkCmdEndRenderPass(current_cmd);
+        UtilsVK::endRegion(current_cmd);
 
-    m_plane->draw(current_cmd, 0);
-
-    vkCmdEndRenderPass(current_cmd);
-    UtilsVK::endRegion(current_cmd);
-
-    firstPass = false;
+        firstPass = false;
     }
 
     if( vkEndCommandBuffer( current_cmd ) != VK_SUCCESS )
