@@ -506,7 +506,7 @@ void PostProcessPassVK::createDescriptors()
         set_write[ 1 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
         set_write[ 1 ].descriptorCount   = 1;
         set_write[ 1 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        set_write[ 1 ].pImageInfo        = &image_infos[ 0 ];
+        set_write[ 1 ].pImageInfo        = &image_infos[ 1 ];
 
         vkUpdateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr );
     }

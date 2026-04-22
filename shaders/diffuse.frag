@@ -36,6 +36,7 @@ struct ObjectData
 {
     mat4 m_model;
     vec4 m_albedo; 
+    vec4 m_emissive; 
     vec4 m_metallic_roughness;
 };
 
@@ -60,7 +61,7 @@ float linearDepth( float depth )
 
 
 void main() {
-    out_color           = per_object_data.objects[ f_instance ].m_albedo;
+    out_color           = per_object_data.objects[ f_instance ].m_albedo + per_object_data.objects[ f_instance ].m_emissive;
     out_normal          = vec4( normalize( f_normal ) * 0.5f + 0.5f, 0.0f );
     out_position_depth  = vec4( f_position, linearDepth(gl_FragCoord.z) );
     out_material        = vec4( 0.0, 0.0, 0.0, 1.0 ); //0 for diffuse

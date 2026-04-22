@@ -34,6 +34,7 @@ struct ObjectData
 {
     mat4 m_model;
     vec4 m_albedo; 
+    vec4 m_emissive;
     vec4 m_metallic_roughness;
 };
 

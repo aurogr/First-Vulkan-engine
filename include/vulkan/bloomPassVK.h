@@ -35,6 +35,7 @@ namespace MiniEngine
 
         struct PingPongDescriptorSet
         {
+            VkDescriptorSet m_descriptor_horizontal_first_pass;
             VkDescriptorSet m_descriptor_horizontal;
             VkDescriptorSet m_descriptor_vertical;
 		};

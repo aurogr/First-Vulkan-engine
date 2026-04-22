@@ -124,9 +124,6 @@ VkCommandBuffer BloomBlurPassVK::draw( const Frame& i_frame)
 
     uint32_t width = 0, height = 0;
     renderer.getWindow().getWindowSize( width, height );
-	// half-resolution for the bloom pass
-	width /= 2;
-	height /= 2;
 
     VkClearValue clear_value;
     clear_value.color = { { 0.0f, 0.0f, 0.2f, 1.0f } };
@@ -135,6 +132,12 @@ VkCommandBuffer BloomBlurPassVK::draw( const Frame& i_frame)
     {
         throw MiniEngineException("failed to begin recording command buffer!");
     }
+
+    bool firstPass = true;
+
+    for (int i = 0; i < 5; i++)
+    {
+
 
 	// ----- PASS 1 : HORIZONTAL BLUR -----
     UtilsVK::beginRegion(current_cmd, "Bloom Horizontal", Vector4f(0.5f, 0.0f, 0.0f, 1.0f));
@@ -155,7 +158,8 @@ VkCommandBuffer BloomBlurPassVK::draw( const Frame& i_frame)
     uint32_t is_horizontal = 1;
     vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &is_horizontal);
 	// Bind the descriptor set for the horizontal blur pass
-    vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[ renderer.getWindow().getCurrentImageId() ].m_descriptor_horizontal, 0, NULL);
+	VkDescriptorSet descriptorSetHorizontal = firstPass ? m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_descriptor_horizontal_first_pass : m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_descriptor_horizontal;
+    vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &descriptorSetHorizontal, 0, NULL);
 				
     m_plane->draw( current_cmd, 0 );
     
@@ -200,6 +204,9 @@ VkCommandBuffer BloomBlurPassVK::draw( const Frame& i_frame)
     vkCmdEndRenderPass(current_cmd);
     UtilsVK::endRegion(current_cmd);
 
+    firstPass = false;
+    }
+
     if( vkEndCommandBuffer( current_cmd ) != VK_SUCCESS )
     {
         throw MiniEngineException( "failed to record command buffer!" );
@@ -214,8 +221,6 @@ void BloomBlurPassVK::createFbo()
 
     uint32_t width = 0, height = 0;
     renderer.getWindow().getWindowSize( width, height );
-    width /= 2;
-    height /= 2;
 
     for( size_t i = 0; i < m_fbos.size(); i++ )
     {
@@ -520,11 +525,17 @@ void BloomBlurPassVK::createDescriptors()
         alloc_info.pSetLayouts          = &m_descriptor_set_layout;
 
         vkAllocateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_info, &m_descriptor_sets[ i ].m_descriptor_horizontal );
+        vkAllocateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_info, &m_descriptor_sets[ i ].m_descriptor_horizontal_first_pass );
         vkAllocateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_info, &m_descriptor_sets[ i ].m_descriptor_vertical );
 
+        VkDescriptorImageInfo info_horizontal_first_pass{};
+        info_horizontal_first_pass.sampler     = m_in_brightness_attachment.m_sampler;
+        info_horizontal_first_pass.imageView   = m_in_brightness_attachment.m_image_view;
+        info_horizontal_first_pass.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
         VkDescriptorImageInfo info_horizontal{};
-        info_horizontal.sampler     = m_in_brightness_attachment.m_sampler;
-        info_horizontal.imageView   = m_in_brightness_attachment.m_image_view;
+        info_horizontal.sampler     = m_output_v_ping_pong_attachment.m_sampler;
+        info_horizontal.imageView   = m_output_v_ping_pong_attachment.m_image_view;
         info_horizontal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         VkDescriptorImageInfo info_vertical{};
@@ -532,29 +543,34 @@ void BloomBlurPassVK::createDescriptors()
         info_vertical.imageView   = m_output_h_ping_pong_attachment.m_image_view;
         info_vertical.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        assert(m_in_brightness_attachment.m_image_view != VK_NULL_HANDLE && "Brightness View is NULL!");
-        assert(m_in_brightness_attachment.m_image_view != VK_NULL_HANDLE && "Brightness View is NULL!");
-        assert(m_output_h_ping_pong_attachment.m_image_view != VK_NULL_HANDLE && "Ping Pong H View is NULL!");
-
-        std::array<VkWriteDescriptorSet, 2> set_write;
+        std::array<VkWriteDescriptorSet, 3> set_write;
 
         set_write[ 0 ]                   = {};
         set_write[ 0 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         set_write[ 0 ].pNext             = nullptr;
         set_write[ 0 ].dstBinding        = 0;
-        set_write[ 0 ].dstSet            = m_descriptor_sets[ i ].m_descriptor_horizontal;
+        set_write[ 0 ].dstSet            = m_descriptor_sets[ i ].m_descriptor_horizontal_first_pass;
         set_write[ 0 ].descriptorCount   = 1;
         set_write[ 0 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        set_write[ 0 ].pImageInfo        = &info_horizontal;
+        set_write[ 0 ].pImageInfo        = &info_horizontal_first_pass;
 
         set_write[ 1 ]                   = {};
         set_write[ 1 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         set_write[ 1 ].pNext             = nullptr;
         set_write[ 1 ].dstBinding        = 0;
-        set_write[ 1 ].dstSet            = m_descriptor_sets[ i ].m_descriptor_vertical;
+        set_write[ 1 ].dstSet            = m_descriptor_sets[ i ].m_descriptor_horizontal;
         set_write[ 1 ].descriptorCount   = 1;
         set_write[ 1 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        set_write[ 1 ].pImageInfo        = &info_vertical;
+        set_write[ 1 ].pImageInfo        = &info_horizontal;
+
+        set_write[ 2 ]                   = {};
+        set_write[ 2 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        set_write[ 2 ].pNext             = nullptr;
+        set_write[ 2 ].dstBinding        = 0;
+        set_write[ 2 ].dstSet            = m_descriptor_sets[ i ].m_descriptor_vertical;
+        set_write[ 2 ].descriptorCount   = 1;
+        set_write[ 2 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        set_write[ 2 ].pImageInfo        = &info_vertical;
 
         vkUpdateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr );
     }

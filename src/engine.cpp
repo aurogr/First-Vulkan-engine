@@ -447,8 +447,8 @@ void Engine::createAttachments()
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8_UNORM           , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_ssao_attachment           );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8_UNORM           , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_ssao_blur_attachment      );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_brightness_attachment      );
-    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width/2, height/2, m_render_target_attachments.m_bloom_h_ping_pong_attachment); // downsized
-    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width/2, height/2, m_render_target_attachments.m_bloom_v_ping_pong_attachment); // downsized
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_h_ping_pong_attachment);
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_v_ping_pong_attachment);
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_hdr_attachment            );
 
     m_render_target_attachments.m_color_attachment.m_sampler            = m_global_samplers[ 0 ];         
