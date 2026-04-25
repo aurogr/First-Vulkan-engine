@@ -6,6 +6,9 @@ layout ( set = 0, binding = 0 ) uniform sampler2D i_hdr;
 layout ( set = 0, binding = 1 ) uniform sampler2D i_bloom;
 layout(std140, set = 0, binding = 2) uniform PostProcessData {
     float exposure;
+    int tone_mapping_enabled;
+    int padding0;
+    int padding1;
     // ... otros parámetros como contraste o gamma
 } ubo;
 
@@ -38,10 +41,12 @@ void main()
     hdr_color = hdr_color * ubo.exposure;
 
     // tone mapping
-    vec3 mapped = ACESFilm(hdr_color);
+    if (ubo.tone_mapping_enabled != 0) {
+        hdr_color = ACESFilm(hdr_color);
+    }
 
     // gamma correction
     float gamma = 2.2f;
 
-    out_color = vec4( pow( mapped, vec3( 1.0f / gamma ) ), 1.0 );
+    out_color = vec4( pow( hdr_color, vec3( 1.0f / gamma ) ), 1.0 );
 }

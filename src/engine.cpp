@@ -145,6 +145,7 @@ void Engine::run()
 
 	float exposureValue = 1.0f;
 	int pingpongPasses = 3.0f;
+	bool toneMappingEnabled = true;
 
     bool loop = true;
     while( loop && m_scene ) 
@@ -160,8 +161,9 @@ void Engine::run()
         ImGui::NewFrame();
 
         ImGui::Begin("Post-Processing");
-        ImGui::SliderFloat("Exposure", &exposureValue, 0.01f, 5.0f);
         ImGui::SliderInt("Bloom PingPong Passes", &pingpongPasses, 1, 10);
+        ImGui::SliderFloat("Exposure", &exposureValue, 0.01f, 5.0f);
+        ImGui::Checkbox("Tone Mapping", &toneMappingEnabled);
         ImGui::Text("Average %.2f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
 
@@ -170,6 +172,7 @@ void Engine::run()
 		// Add post-process data to the buffer
         PostProcessData ubo{};
         ubo.m_exposure = exposureValue;
+        ubo.m_tone_mapping_enabled = toneMappingEnabled ? 1 : 0;
 
 		m_runtime.bloom_pingpong_passes = pingpongPasses;
 

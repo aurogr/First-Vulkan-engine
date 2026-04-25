@@ -37,6 +37,10 @@ namespace MiniEngine
 
     struct PostProcessData {
         alignas(16) float m_exposure = 1.0f;
+		alignas(16) uint32_t m_tone_mapping_enabled = 1;
+		alignas(16) uint32_t padding0 = 1;
+		alignas(16) uint32_t padding1 = 1;
+
     };
 
     struct Frame
