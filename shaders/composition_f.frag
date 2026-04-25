@@ -107,20 +107,20 @@ vec3 evalMicrofacets(){
         {
             case 0: //directional
             {
-                vec3 l = normalize( light.m_light_pos.xyz );
+                vec3 l = normalize( -light.m_light_pos.xyz );
 
                 vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb);
                 
-                shading += max( dot( n, l ), 0.0 ) * (shade);
+                shading += max( dot( n, l ), 0.0 ) * light.m_radiance.rgb * (shade);
                 break;
             }
             case 1: //point
             {
                 vec3 l = light.m_light_pos.xyz - frag_pos;
                 float dist = length( l );
-                l = l/dist;
                 float att = 1.0 / (light.m_attenuattion.x + light.m_attenuattion.y * dist + light.m_attenuattion.z * dist * dist );
                 vec3 radiance = light.m_radiance.rgb * att;
+                l = normalize(l);
                 
                 vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb);
 

@@ -66,7 +66,7 @@ void main()
         vec3 samplePos = TBN * samples[i].xyz; // from tangent to view-space
         samplePos = fragPos + samplePos * RADIUS; // add them to the current fragment position
 
-        // transform sample position from view-space to screen-space using projection matrix
+        // transform sample position from view-space to clip-space using projection matrix
         vec4 offset = vec4(samplePos, 1.0);
         offset = per_frame_data.m_projection * offset;
         offset.xyz /= offset.w;

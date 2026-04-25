@@ -60,7 +60,7 @@
 
 
 	<emitter type="directional">
-		<direction name="direction" value="0.0 1.0 1.0"/>
+		<direction name="direction" value="0.0 -1.0 -1.0"/>
 		<radiance name="radiance" value="0.6 0.2 0.2"/>
 	</emitter>
 	

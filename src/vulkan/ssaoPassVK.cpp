@@ -123,7 +123,7 @@ void SSAOPassVK::createKernelAndNoise()
         ssaoKernel.push_back(sample);
     }
 
-    // Convert glm::vec3 → Eigen::Vector4f
+    // Convert glm::vec3 -> Vector4f
     for (unsigned int i = 0; i < 64; ++i)
     {
         const glm::vec3& s = ssaoKernel[i];
