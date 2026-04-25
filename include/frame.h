@@ -35,6 +35,10 @@ namespace MiniEngine
         alignas( 16 ) Vector4f m_metallic_roughness;
     };
 
+    struct PostProcessData {
+        alignas(16) float m_exposure = 1.0f;
+    };
+
     struct Frame
     {};
 };

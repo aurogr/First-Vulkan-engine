@@ -34,11 +34,6 @@ namespace MiniEngine
         void createDescriptorLayout();
         void createDescriptors     ();
 
-        struct DescriptorsSets
-        {
-            VkDescriptorSet m_textures_descriptor;
-        };
-
         VkRenderPass                   m_render_pass;
         std::array<VkCommandBuffer, 3> m_command_buffer;
         std::array<VkFramebuffer  , 3> m_fbos;
@@ -48,7 +43,7 @@ namespace MiniEngine
         VkPipelineLayout                                                   m_pipeline_layouts;
         VkDescriptorSetLayout                                              m_descriptor_set_layout;
         VkDescriptorPool                                                   m_descriptor_pool;
-        std::array<DescriptorsSets                , kMAX_NUMBER_OF_FRAMES> m_descriptor_sets;
+        std::array<VkDescriptorSet, kMAX_NUMBER_OF_FRAMES> m_descriptor_sets;
         std::array<VkPipelineShaderStageCreateInfo, 2                    > m_shader_stages;
     
         MeshVKPtr m_plane;

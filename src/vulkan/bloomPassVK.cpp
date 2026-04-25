@@ -134,7 +134,7 @@ VkCommandBuffer BloomBlurPassVK::draw( const Frame& i_frame)
     }
 
     bool firstPass = true;
-	const uint32_t BLUR_PASS_COUNT = 3; // number of blur passes to perform (more passes = blurrier result)
+	const uint32_t BLUR_PASS_COUNT = m_runtime.getBloomPingPongPasses(); // number of blur passes to perform (more passes = blurrier result)
 
     for (int i = 0; i < BLUR_PASS_COUNT; i++)
     {

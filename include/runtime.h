@@ -26,6 +26,16 @@ namespace MiniEngine
             return m_per_object_buffer;
         }
 
+        inline const std::array<VkBuffer, kMAX_NUMBER_OF_FRAMES> getPostProccessBuffer() const
+        {
+            return m_post_process_buffer;
+        }
+
+        inline uint32_t getBloomPingPongPasses() const
+        {
+            return bloom_pingpong_passes;
+		}
+
 
     private:
         explicit Runtime() = default;
@@ -42,6 +52,11 @@ namespace MiniEngine
 
         std::array<VkBuffer       , kMAX_NUMBER_OF_FRAMES> m_per_object_buffer = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE };
         std::array<VkDeviceMemory, kMAX_NUMBER_OF_FRAMES> m_per_object_buffer_memory;
+
+		std::array<VkBuffer, kMAX_NUMBER_OF_FRAMES> m_post_process_buffer = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE };
+		std::array<VkDeviceMemory, kMAX_NUMBER_OF_FRAMES> m_post_process_buffer_memory;
+
+        uint32_t bloom_pingpong_passes = 3;
 
         friend class Engine;
     };

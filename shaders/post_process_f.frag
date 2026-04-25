@@ -4,6 +4,10 @@ layout( location = 0 ) in vec2 f_uvs;
 
 layout ( set = 0, binding = 0 ) uniform sampler2D i_hdr;
 layout ( set = 0, binding = 1 ) uniform sampler2D i_bloom;
+layout(std140, set = 0, binding = 2) uniform PostProcessData {
+    float exposure;
+    // ... otros parámetros como contraste o gamma
+} ubo;
 
 layout(location = 0) out vec4 out_color;
 
@@ -31,9 +35,7 @@ void main()
 
     hdr_color += bloom_color; // additive blending
 
-    // exposure
-    float exposure = 1.0f;
-    hdr_color = hdr_color * exposure;
+    hdr_color = hdr_color * ubo.exposure;
 
     // tone mapping
     vec3 mapped = ACESFilm(hdr_color);

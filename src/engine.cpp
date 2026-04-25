@@ -143,6 +143,9 @@ void Engine::run()
 
     initImgui();
 
+	float exposureValue = 1.0f;
+	int pingpongPasses = 3.0f;
+
     bool loop = true;
     while( loop && m_scene ) 
     {
@@ -157,12 +160,23 @@ void Engine::run()
         ImGui::NewFrame();
 
         ImGui::Begin("Post-Processing");
-		float exposure = 1.0f;
-        ImGui::SliderFloat("Exposure", &exposure, 0.0f, 5.0f);
-        ImGui::Text("Averafe %.2f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::SliderFloat("Exposure", &exposureValue, 0.01f, 5.0f);
+        ImGui::SliderInt("Bloom PingPong Passes", &pingpongPasses, 1, 10);
+        ImGui::Text("Average %.2f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
 
         ImGui::Render();
+
+		// Add post-process data to the buffer
+        PostProcessData ubo{};
+        ubo.m_exposure = exposureValue;
+
+		m_runtime.bloom_pingpong_passes = pingpongPasses;
+
+        void* data;
+        vkMapMemory(m_runtime.m_renderer->getDevice()->getLogicalDevice(), m_runtime.m_post_process_buffer_memory[m_current_frame % 3], 0, sizeof(PostProcessData), 0, &data);
+        memcpy(data, &ubo, sizeof(PostProcessData));
+        vkUnmapMemory(m_runtime.m_renderer->getDevice()->getLogicalDevice(), m_runtime.m_post_process_buffer_memory[m_current_frame % 3]);
         // -----------------------------------
         
         //update global uniforms buffers 

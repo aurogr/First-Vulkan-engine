@@ -150,7 +150,7 @@ VkCommandBuffer PostProcessPassVK::draw( const Frame& i_frame)
     vkCmdBeginRenderPass( current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE );
 
     vkCmdBindPipeline( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_composition_pipeline );
-    vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[ renderer.getWindow().getCurrentImageId() ].m_textures_descriptor, 0, NULL);
+    vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[ renderer.getWindow().getCurrentImageId() ], 0, NULL);
 				
     m_plane->draw( current_cmd, 0 );
 
@@ -422,7 +422,7 @@ void PostProcessPassVK::createPipelines()
 
 void PostProcessPassVK::createDescriptorLayout()
 {
-    std::array<VkDescriptorSetLayoutBinding, 2> layout_bindings;
+    std::array<VkDescriptorSetLayoutBinding, 3> layout_bindings;
 
     ////// PER FRAME
     layout_bindings[ 0 ] = {};
@@ -436,6 +436,12 @@ void PostProcessPassVK::createDescriptorLayout()
     layout_bindings[ 1 ].descriptorCount              = 1;
     layout_bindings[ 1 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     layout_bindings[ 1 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    layout_bindings[ 2 ] = {};
+    layout_bindings[ 2 ].binding = 2;
+    layout_bindings[ 2 ].descriptorCount = 1;
+    layout_bindings[ 2 ].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    layout_bindings[ 2 ].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     VkDescriptorSetLayoutCreateInfo set_attachment_color_info = {};
     set_attachment_color_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -456,6 +462,7 @@ void PostProcessPassVK::createDescriptors()
     //create a descriptor pool that will hold 10 uniform buffers
     std::vector<VkDescriptorPoolSize> sizes =
     {
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10 }
     };
 
@@ -475,14 +482,19 @@ void PostProcessPassVK::createDescriptors()
     for( uint32_t i = 0; i < m_runtime.m_renderer->getWindow().getImageCount(); i++ )
     {   
         //globals per frame
-        VkDescriptorSetAllocateInfo alloc_per_frame_info = {};
-        alloc_per_frame_info.pNext                = nullptr;
-        alloc_per_frame_info.sType                = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        alloc_per_frame_info.descriptorPool       = m_descriptor_pool;
-        alloc_per_frame_info.descriptorSetCount   = 1;
-        alloc_per_frame_info.pSetLayouts          = &m_descriptor_set_layout;
+        VkDescriptorSetAllocateInfo alloc_post_procces_info = {};
+        alloc_post_procces_info.pNext                = nullptr;
+        alloc_post_procces_info.sType                = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        alloc_post_procces_info.descriptorPool       = m_descriptor_pool;
+        alloc_post_procces_info.descriptorSetCount   = 1;
+        alloc_post_procces_info.pSetLayouts          = &m_descriptor_set_layout;
 
-        vkAllocateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_per_frame_info, &m_descriptor_sets[ i ].m_textures_descriptor );
+        vkAllocateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_post_procces_info, &m_descriptor_sets[ i ] );
+
+        VkDescriptorBufferInfo binfo;
+        binfo.buffer = m_runtime.getPostProccessBuffer()[i];
+        binfo.offset = 0;
+        binfo.range = sizeof(PostProcessData);
 
         std::array<VkDescriptorImageInfo, 2> image_infos;
         image_infos[ 0 ].sampler     = m_in_hdr_attachment.m_sampler;
@@ -493,13 +505,13 @@ void PostProcessPassVK::createDescriptors()
         image_infos[ 1 ].imageView   = m_in_bloom_blur_attachment.m_image_view;
         image_infos[ 1 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        std::array<VkWriteDescriptorSet, 2> set_write;
+        std::array<VkWriteDescriptorSet, 3> set_write;
 
         set_write[ 0 ]                   = {};
         set_write[ 0 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         set_write[ 0 ].pNext             = nullptr;
         set_write[ 0 ].dstBinding        = 0;
-        set_write[ 0 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
+        set_write[ 0 ].dstSet            = m_descriptor_sets[ i ];
         set_write[ 0 ].descriptorCount   = 1;
         set_write[ 0 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         set_write[ 0 ].pImageInfo        = &image_infos[ 0 ];
@@ -508,10 +520,20 @@ void PostProcessPassVK::createDescriptors()
         set_write[ 1 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         set_write[ 1 ].pNext             = nullptr;
         set_write[ 1 ].dstBinding        = 1;
-        set_write[ 1 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
+        set_write[ 1 ].dstSet            = m_descriptor_sets[ i ];
         set_write[ 1 ].descriptorCount   = 1;
         set_write[ 1 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         set_write[ 1 ].pImageInfo        = &image_infos[ 1 ];
+
+        set_write[ 2 ]                   = {};
+        set_write[ 2 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        set_write[ 2 ].pNext             = nullptr;
+        set_write[ 2 ].dstBinding        = 2;
+        set_write[ 2 ].dstSet            = m_descriptor_sets[i];
+        set_write[ 2 ].descriptorCount   = 1;
+        set_write[ 2 ].descriptorType    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        set_write[ 2 ].pImageInfo        = nullptr;
+        set_write[ 2 ].pBufferInfo       = &binfo;
 
         vkUpdateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr );
     }
