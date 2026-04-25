@@ -2,46 +2,52 @@
 
 layout( location = 0 ) in vec2 f_uvs;
 
-//globals
-struct LightData
-{
-    vec4 m_light_pos;
-    vec4 m_radiance;
-    vec4 m_attenuattion;
-};
-
-layout( std140, set = 0, binding = 0 ) uniform PerFrameData
-{
-    vec4      m_camera_pos;
-    mat4      m_view;
-    mat4      m_projection;
-    mat4      m_view_projection;
-    mat4      m_inv_view;
-    mat4      m_inv_projection;
-    mat4      m_inv_view_projection;
-    vec4      m_clipping_planes;
-    LightData m_lights[ 10 ];
-    uint      m_number_of_lights;
-} per_frame_data;
-
-
-layout ( set = 0, binding = 1 ) uniform sampler2D ssaoInput;
+layout ( set = 0, binding = 0 ) uniform sampler2D ssao_input;
+layout ( set = 0, binding = 1 ) uniform sampler2D position_depth_input;
 
 layout(location = 0) out vec4 out_ssao;
 
 void main() 
 {
-    vec2 texelSize = 1.0 / vec2(textureSize(ssaoInput, 0));
+    vec2 texelSize = 1.0 / vec2(textureSize(ssao_input, 0));
     float result = 0.0;
     for (int x = -2; x < 2; ++x) 
     {
         for (int y = -2; y < 2; ++y) 
         {
             vec2 offset = vec2(float(x), float(y)) * texelSize;
-            result += texture(ssaoInput, f_uvs + offset).r;
+            result += texture(ssao_input, f_uvs + offset).r;
         }
     }
     
     float blurredOcclusion = result / 16.0;
     out_ssao = vec4(vec3(blurredOcclusion), 1.0);
+
+    vec3 centerPos = texture(position_depth_input, f_uvs).xyz;
+    float centerDepth = centerPos.z;
+    
+/*
+    vec2 texelSize = 1.0 / vec2(textureSize(ssao_input, 0));
+    vec3 centerPos = texture(position_depth_input, f_uvs).xyz;
+    float centerDepth = centerPos.z;
+
+    float result = 0.0;
+    float weight = 0.0;
+
+    for (int x = -2; x < 2; ++x) {
+        for (int y = -2; y < 2; ++y) {
+            vec2 offset = vec2(float(x), float(y)) * texelSize;
+            
+            float sampleDepth = texture(position_depth_input, f_uvs + offset).z;
+            float sampleAO = texture(ssao_input, f_uvs + offset).r;
+
+            float weight_depth = 1.0 / (0.01 + abs(centerDepth - sampleDepth));
+            
+            result += sampleAO * weight_depth;
+            weight += weight_depth;
+        }
+    }
+    
+    float blurredOcclusion = result / weight;
+    out_ssao = vec4(vec3(blurredOcclusion), 1.0); */
 }

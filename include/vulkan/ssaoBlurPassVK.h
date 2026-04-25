@@ -14,6 +14,7 @@ namespace MiniEngine
         SSAOBlurPassVK( 
                             const Runtime& i_runtime,
                             const ImageBlock& i_in_m_ssao_attachment,
+                            const ImageBlock& i_in_m_position_depth_attachment,
                             const ImageBlock& i_m_ssao_blur_attachment
                           );
         virtual ~SSAOBlurPassVK();
@@ -52,6 +53,7 @@ namespace MiniEngine
         MeshVKPtr m_plane;
 
         ImageBlock m_in_ssao_attachment;
+        ImageBlock m_in_position_depth_attachment;
         ImageBlock m_ssao_blur_attachment;
     };
 };

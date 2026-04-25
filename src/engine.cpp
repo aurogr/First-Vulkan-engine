@@ -296,6 +296,7 @@ void Engine::createRenderPasses ()
     auto ssao_blur_pass = std::make_shared<SSAOBlurPassVK>(
         m_runtime,
         m_render_target_attachments.m_ssao_attachment,
+        m_render_target_attachments.m_position_depth_attachment,
         m_render_target_attachments.m_ssao_blur_attachment);
     ssao_blur_pass->initialize();
 

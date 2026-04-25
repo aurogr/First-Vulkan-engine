@@ -17,9 +17,11 @@ using namespace MiniEngine;
 SSAOBlurPassVK::SSAOBlurPassVK(
     const Runtime& i_runtime,
     const ImageBlock& i_in_m_ssao_attachment,
+    const ImageBlock& i_in_m_position_depth_attachment,
     const ImageBlock& i_m_ssao_blur_attachment) :
     RenderPassVK(i_runtime),
     m_in_ssao_attachment(i_in_m_ssao_attachment),
+    m_in_position_depth_attachment(i_in_m_position_depth_attachment),
     m_ssao_blur_attachment(i_m_ssao_blur_attachment)
 {
     for (auto cmd : m_command_buffer)
@@ -409,17 +411,16 @@ void SSAOBlurPassVK::createPipelines()
 void SSAOBlurPassVK::createDescriptorLayout()
 {
     std::array<VkDescriptorSetLayoutBinding, 2> layout_bindings;
-
     layout_bindings[0] = {};
     layout_bindings[0].binding = 0;
     layout_bindings[0].descriptorCount = 1;
-    layout_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // buffer de parametros globales
+    layout_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // ssao
     layout_bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     layout_bindings[1] = {};
     layout_bindings[1].binding = 1;
     layout_bindings[1].descriptorCount = 1;
-    layout_bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // ssao
+	layout_bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // position depth
     layout_bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     VkDescriptorSetLayoutCreateInfo set_attachment_color_info = {};
@@ -470,30 +471,26 @@ void SSAOBlurPassVK::createDescriptors()
 
         vkAllocateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_per_frame_info, &m_descriptor_sets[i].m_textures_descriptor);
 
-        // global parameters buffer info
-        VkDescriptorBufferInfo binfo;
-        binfo.buffer = m_runtime.getPerFrameBuffer()[i];
-        binfo.offset = 0;
-        binfo.range = sizeof(PerFrameData);
-
         // texutres info
-        std::array<VkDescriptorImageInfo, 1> image_infos;
+        std::array<VkDescriptorImageInfo, 2> image_infos;
         image_infos[0].sampler = m_in_ssao_attachment.m_sampler;
         image_infos[0].imageView = m_in_ssao_attachment.m_image_view;
         image_infos[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+        image_infos[1].sampler = m_in_position_depth_attachment.m_sampler;
+        image_infos[1].imageView = m_in_position_depth_attachment.m_image_view;
+        image_infos[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
         // write the descriptor sets
         std::array<VkWriteDescriptorSet, 2> set_write;
-
         set_write[0] = {};
         set_write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         set_write[0].pNext = nullptr;
         set_write[0].dstBinding = 0;
         set_write[0].dstSet = m_descriptor_sets[i].m_textures_descriptor;
         set_write[0].descriptorCount = 1;
-        set_write[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        set_write[0].pImageInfo = nullptr;
-        set_write[0].pBufferInfo = &binfo;
+        set_write[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        set_write[0].pImageInfo = &image_infos[0];
 
         set_write[1] = {};
         set_write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -502,7 +499,7 @@ void SSAOBlurPassVK::createDescriptors()
         set_write[1].dstSet = m_descriptor_sets[i].m_textures_descriptor;
         set_write[1].descriptorCount = 1;
         set_write[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        set_write[1].pImageInfo = &image_infos[0];
+        set_write[1].pImageInfo = &image_infos[1];
 
         vkUpdateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr);
     }
