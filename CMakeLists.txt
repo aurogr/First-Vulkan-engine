@@ -10,6 +10,7 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(${PROJECT_SOURCE_DIR}/libs/glfw)
 add_subdirectory(${PROJECT_SOURCE_DIR}/libs/pugixml)
 add_subdirectory(${PROJECT_SOURCE_DIR}/libs/tinyobjloader)
+add_subdirectory(${PROJECT_SOURCE_DIR}/libs/imgui)
 
 find_package(Vulkan REQUIRED)
 
@@ -23,8 +24,8 @@ include_directories(
 	libs/glm
 	libs/pugixml/src
 	libs/tinyobjloader
+	libs/imgui
 	)
-
 
 add_executable(Practica5 
 #INCLUDES
@@ -97,6 +98,6 @@ src/vulkan/postProcessPassVK.cpp
 
 
 set_target_properties(Practica5 PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
-target_link_libraries(Practica5 glfw pugixml::pugixml ${Vulkan_LIBRARIES} tinyobjloader )
+target_link_libraries(Practica5 glfw pugixml::pugixml ${Vulkan_LIBRARIES} tinyobjloader imgui)
 
 

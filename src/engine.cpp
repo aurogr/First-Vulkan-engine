@@ -26,7 +26,10 @@
 #include "vulkan/deviceVK.h"
 #include "vulkan/utilsVK.h"
 
-
+// interface with imgui
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 
 using namespace MiniEngine;
 
@@ -82,10 +85,63 @@ bool Engine::initialize()
     return true;
 }
 
+void Engine::initImgui()
+{
+    // ------- Initialize ImGui --------
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+
+    RendererVK& renderer = *m_runtime.m_renderer;
+    ImGui_ImplGlfw_InitForVulkan(renderer.getWindow().getWindow(), true);
+
+    VkDescriptorPoolSize pool_sizes[] = {
+    { VK_DESCRIPTOR_TYPE_SAMPLER, 100 },
+    { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100 },
+    { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 100 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 100 },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 100 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 100 },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100 },
+    { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 100 },
+    { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 100 },
+    { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 100 }
+    };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT; // Crucial para ImGui
+    pool_info.maxSets = 1000; // Un número generoso para que no se agote
+    pool_info.poolSizeCount = static_cast<uint32_t>(std::size(pool_sizes));
+    pool_info.pPoolSizes = pool_sizes;
+
+    if (vkCreateDescriptorPool(renderer.getDevice()->getLogicalDevice(), &pool_info, nullptr, &m_imgui_descriptor_pool) != VK_SUCCESS) {
+        throw std::runtime_error("Error al crear el Descriptor Pool para ImGui");
+    }
+
+    // 3. Inicializar para VULKAN
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = renderer.getInstance();
+    init_info.PhysicalDevice = renderer.getDevice()->getPhysicalDevice();
+    init_info.Device = renderer.getDevice()->getLogicalDevice();
+    init_info.Queue = renderer.getDevice()->getGraphicsQueue();
+    init_info.DescriptorPool = m_imgui_descriptor_pool;
+    init_info.MinImageCount = 2; // Normalmente el mínimo del swapchain
+    init_info.ImageCount = 3; // Cuántas imágenes tiene tu swapchain (veo que usas clamped_idx % 3)
+    init_info.PipelineInfoMain.RenderPass = m_render_passes.back()->getRenderPass();
+    init_info.PipelineInfoMain.Subpass = 0;
+    init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+    ImGui_ImplVulkan_Init(&init_info);
+}
+
 
 void Engine::run()
 {
     RendererVK& renderer = *m_runtime.m_renderer;
+
+    initImgui();
 
     bool loop = true;
     while( loop && m_scene ) 
@@ -94,6 +150,20 @@ void Engine::run()
         renderer.getWindow().prepareFrame( m_frame_semaphore[ clamped_idx ].m_presentation_semaphore );
         
         vkWaitForFences( renderer.getDevice()->getLogicalDevice(), 1, &m_frame_fence[ clamped_idx ], VK_TRUE, 1000000000 );
+
+		// --------- ImGui interface ---------
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("Post-Processing");
+		float exposure = 1.0f;
+        ImGui::SliderFloat("Exposure", &exposure, 0.0f, 5.0f);
+        ImGui::Text("Averafe %.2f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
+
+        ImGui::Render();
+        // -----------------------------------
         
         //update global uniforms buffers 
         updateGlobalBuffers(); 
@@ -153,7 +223,6 @@ void Engine::run()
         m_current_frame++;
         //check if the window is closed and poll input events
         loop = renderer.getWindow().loop();
-
     }
 }
 
@@ -161,26 +230,31 @@ void Engine::run()
 void Engine::shutdown()
 {
     RendererVK& renderer = *m_runtime.m_renderer;
+    VkDevice device = renderer.getDevice()->getLogicalDevice();
+    vkDeviceWaitIdle(device);
 
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
-    vkDeviceWaitIdle( renderer.getDevice()->getLogicalDevice() );
-    
-    m_runtime.freeResources();
-
-    if( m_scene )
-    {
+    if (m_scene) {
         m_scene->shutdown();
     }
-
-    destroyRenderPasses();
-    destroyAttachments ();
-    destroySamplers    ();
-    destroySyncObjects ();
-
+    m_runtime.freeResources();
     m_runtime.m_mesh_registry->shutdown();
     m_runtime.m_shader_registry->shutdown();
 
-    m_runtime.m_renderer->shutdown();
+    destroyAttachments();
+    destroyRenderPasses();
+    destroySamplers();
+    destroySyncObjects();
+
+    if (m_imgui_descriptor_pool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(device, m_imgui_descriptor_pool, nullptr);
+        m_imgui_descriptor_pool = VK_NULL_HANDLE;
+    }
+
+    renderer.shutdown();
 }
 
 
@@ -207,7 +281,6 @@ void Engine::loadScene( const std::string& i_path )
 
     RendererVK& renderer = *m_runtime.m_renderer;
     renderer.getWindow().resize( m_scene->getCamera().getWidth(), m_scene->getCamera().getHeight() );
-
 }
 
 

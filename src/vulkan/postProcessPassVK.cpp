@@ -10,6 +10,7 @@
 #include "meshRegistry.h"
 #include "entity.h"
 #include "vulkan/meshVK.h"
+#include <imgui_impl_vulkan.h>
 
 using namespace MiniEngine;
 
@@ -152,6 +153,10 @@ VkCommandBuffer PostProcessPassVK::draw( const Frame& i_frame)
     vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[ renderer.getWindow().getCurrentImageId() ].m_textures_descriptor, 0, NULL);
 				
     m_plane->draw( current_cmd, 0 );
+
+	// ---------- ImGui interface ----------
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), current_cmd);
+    // -------------------------------------
     
     vkCmdEndRenderPass( current_cmd );
     UtilsVK::endRegion( current_cmd );

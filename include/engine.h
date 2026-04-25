@@ -36,6 +36,7 @@ namespace MiniEngine
         void createSamplers     ();
         void destroySamplers    ();
         void updateGlobalBuffers();
+        void initImgui();
 
         std::vector<std::shared_ptr<RenderPassVK>> m_render_passes;
 
@@ -59,5 +60,6 @@ namespace MiniEngine
         
         Attachments m_render_target_attachments;
         std::array<VkSampler, 1> m_global_samplers;
+		VkDescriptorPool m_imgui_descriptor_pool;
     };
 };

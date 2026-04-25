@@ -9,7 +9,8 @@ layout(location = 0) out vec4 out_ssao;
 
 void main() 
 {
-    vec2 texelSize = 1.0 / vec2(textureSize(ssao_input, 0));
+    // simple blur
+    /*vec2 texelSize = 1.0 / vec2(textureSize(ssao_input, 0));
     float result = 0.0;
     for (int x = -2; x < 2; ++x) 
     {
@@ -24,9 +25,9 @@ void main()
     out_ssao = vec4(vec3(blurredOcclusion), 1.0);
 
     vec3 centerPos = texture(position_depth_input, f_uvs).xyz;
-    float centerDepth = centerPos.z;
+    float centerDepth = centerPos.z;*/
     
-/*
+    // better blur
     vec2 texelSize = 1.0 / vec2(textureSize(ssao_input, 0));
     vec3 centerPos = texture(position_depth_input, f_uvs).xyz;
     float centerDepth = centerPos.z;
@@ -49,5 +50,5 @@ void main()
     }
     
     float blurredOcclusion = result / weight;
-    out_ssao = vec4(vec3(blurredOcclusion), 1.0); */
+    out_ssao = vec4(vec3(blurredOcclusion), 1.0);
 }

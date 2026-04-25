@@ -26,6 +26,8 @@ namespace MiniEngine
         {
         }
 
+        virtual VkRenderPass getRenderPass() const { return VK_NULL_HANDLE; }
+
     protected:
         const Runtime& m_runtime;
         const std::shared_ptr<RenderPassVK> m_prev_render_pass;

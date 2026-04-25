@@ -22,6 +22,7 @@ namespace MiniEngine
         bool            initialize() override;
         void            shutdown  () override;
         VkCommandBuffer draw      ( const Frame& i_frame ) override;
+        virtual VkRenderPass getRenderPass() const override { return m_render_pass; }
 
     private:
         PostProcessPassVK( const PostProcessPassVK& ) = delete;
