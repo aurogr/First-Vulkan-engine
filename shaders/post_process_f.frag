@@ -6,8 +6,8 @@ layout ( set = 0, binding = 0 ) uniform sampler2D i_hdr;
 layout ( set = 0, binding = 1 ) uniform sampler2D i_bloom;
 layout(std140, set = 0, binding = 2) uniform PostProcessData {
     float exposure;
+    float chromatic_aberration_strenght;
     int tone_mapping_enabled;
-    int padding0;
     int padding1;
     // ... otros parámetros como contraste o gamma
 } ubo;
@@ -25,26 +25,24 @@ vec3 ACESFilm(vec3 x) {
 
 void main() 
 {
-    /*vec3 hdr_color = texture(i_hdr, f_uvs).rgb;
+    // chromatic aberration
+    vec2 dist = f_uvs - 0.5;
+    float amount = 0.005 * ubo.chromatic_aberration_strenght; 
 
-      float gamma = 2.2f;
-    float exposure = 1.0f;
-    vec3 mapped = vec3( 1.0f ) - exp(hdr_color * exposure);
+    float r = texture(i_hdr, f_uvs + dist * amount).r;
+    float g = texture(i_hdr, f_uvs).g;
+    float b = texture(i_hdr, f_uvs - dist * amount).b;
 
-    out_color = vec4( pow( mapped, vec3( 1.0f / gamma ) ), 1.0 );*/
-      
-    vec3 hdr_color = texture(i_hdr, f_uvs).rgb;
+    vec3 hdr_color = vec3(r, g, b);
     vec3 bloom_color = texture(i_bloom, f_uvs).rgb;
 
     hdr_color += bloom_color; // additive blending
-
     hdr_color = hdr_color * ubo.exposure;
 
     // tone mapping
     if (ubo.tone_mapping_enabled != 0) {
         hdr_color = ACESFilm(hdr_color);
     }
-
     // gamma correction
     float gamma = 2.2f;
 
