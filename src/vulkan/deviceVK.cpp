@@ -185,12 +185,82 @@ void DeviceVK::createDevice()
     m_extensions.push_back( VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME );
     m_extensions.push_back( VK_KHR_MAINTENANCE1_EXTENSION_NAME           );
 
+    // ADD EXTENSIONS FOR RTX
+    // Start chaining from the last element so we preserve order
+    void** pNextHead = &m_physical_device_features2.pNext;
+
+    if (std::find(m_supported_extensions.begin(), m_supported_extensions.end(),
+        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_supported_extensions.end())
+    {
+        m_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+
+        accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+        accelerationStructureFeatures.pNext = nullptr;
+        accelerationStructureFeatures.accelerationStructure = VK_TRUE;
+
+        *pNextHead = &accelerationStructureFeatures;
+        pNextHead = &accelerationStructureFeatures.pNext;
+    }
+    if (std::find(m_supported_extensions.begin(), m_supported_extensions.end(),
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != m_supported_extensions.end())
+    {
+        m_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+
+        rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        rayTracingPipelineFeatures.pNext = nullptr;
+
+        *pNextHead = &rayTracingPipelineFeatures;
+        pNextHead = &rayTracingPipelineFeatures.pNext;
+    }
+    if (std::find(m_supported_extensions.begin(), m_supported_extensions.end(),
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) != m_supported_extensions.end())
+    {
+        m_extensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+
+        bufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
+        bufferDeviceAddressFeatures.pNext = nullptr;
+        bufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
+
+        *pNextHead = &bufferDeviceAddressFeatures;
+        pNextHead = &bufferDeviceAddressFeatures.pNext;
+    }
+    if (std::find(m_supported_extensions.begin(), m_supported_extensions.end(),
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME) != m_supported_extensions.end())
+    {
+        m_extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+    }
+    if (std::find(m_supported_extensions.begin(), m_supported_extensions.end(),
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME) != m_supported_extensions.end())
+    {
+        m_extensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+
+        descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
+        descriptorIndexingFeatures.pNext = nullptr;
+
+        *pNextHead = &descriptorIndexingFeatures;
+        pNextHead = &descriptorIndexingFeatures.pNext;
+    }
+    if (std::find(m_supported_extensions.begin(), m_supported_extensions.end(), VK_KHR_RAY_QUERY_EXTENSION_NAME) !=
+        m_supported_extensions.end())
+    {
+        m_extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+
+        rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+        rayQueryFeatures.pNext = nullptr;
+        rayQueryFeatures.rayQuery = VK_TRUE;
+
+        *pNextHead = &rayQueryFeatures;
+        pNextHead = &rayQueryFeatures.pNext;
+    }
+
+    // -----------------------------------------------------
+
     VkDeviceCreateInfo device_create_info = {};
     device_create_info.sType                = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     device_create_info.queueCreateInfoCount = static_cast< uint32_t >( queue_create_infos.size() );
     device_create_info.pQueueCreateInfos    = queue_create_infos.data();
-    device_create_info.pEnabledFeatures     = &m_physical_device_features;
-    device_create_info.pNext                = nullptr;
+    device_create_info.pEnabledFeatures     = nullptr;
+    device_create_info.pNext                = &m_physical_device_features2; // to use rtx
 
     // Enable the debug marker extension if it is present (likely meaning a debugging tool is present)
 #ifdef DEBUG

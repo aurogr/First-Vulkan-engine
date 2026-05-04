@@ -65,6 +65,13 @@ namespace MiniEngine
         std::vector<std::string>                         m_supported_extensions;
         std::vector<const char*>                         m_extensions;
 
+        // Add Raytracing Extensions
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = {};
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = {};
+        VkPhysicalDeviceBufferDeviceAddressFeaturesKHR bufferDeviceAddressFeatures = {};
+        VkPhysicalDeviceDescriptorIndexingFeaturesEXT descriptorIndexingFeatures = {};
+        VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = {};
+
         friend class RendererVK;
     };
 }
