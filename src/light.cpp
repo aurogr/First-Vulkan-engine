@@ -55,7 +55,7 @@ std::shared_ptr<Light> Light::createLight(const Runtime &i_runtime, const pugi::
     return light;
 }
 
-Matrix4f MiniEngine::Light::getLightSpaceMatrix(std::shared_ptr<Light> i_light, const Camera &i_camera)
+Matrix4f MiniEngine::Light::getLightSpaceMatrix(std::shared_ptr<Light> i_light, Camera &i_camera)
 {
 
     switch (i_light->m_data.m_type)

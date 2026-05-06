@@ -90,6 +90,16 @@ vec3 shadeMicrofacets(vec3 v, vec3 l, vec3 n, float metallic, float roughness, v
     return diffuse + spec; 
 }
 
+float evalVisibility(vec4 frag_pos_light_proj){
+    vec3 projCoords = frag_pos_light_proj.xyz / frag_pos_light_proj.w;
+    projCoords = projCoords * 0.5 + 0.5; 
+
+    float closestDepth = texture(i_shadow, projCoords.xy).r;   
+    float currentDepth = projCoords.z; 
+
+    return currentDepth > closestDepth  ? 1.0 : 0.0;  
+}
+
 vec3 evalMicrofacets(){
     vec4 albedo       = texture( i_albedo  , f_uvs );
     vec3  n            = normalize( texture( i_normal, f_uvs ).rgb * 2.0 - 1.0 );    
@@ -105,6 +115,9 @@ vec3 evalMicrofacets(){
     {
         LightData light = per_frame_data.m_lights[ id_light ];
         uint light_type = uint( floor( light.m_light_pos.a ) );
+
+        vec4 frag_pos_light_proj = vec4(frag_pos, 1.0) * per_frame_data.m_lights[ id_light ].m_view_projection;
+
         switch( light_type )
         {
             case 0: //directional
@@ -113,7 +126,7 @@ vec3 evalMicrofacets(){
 
                 vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb);
                 
-                shading += max( dot( n, l ), 0.0 ) * light.m_radiance.rgb * (shade);
+                shading += max( dot( n, l ), 0.0 ) * light.m_radiance.rgb * (shade) * evalVisibility(frag_pos_light_proj);
                 break;
             }
             case 1: //point
@@ -124,7 +137,7 @@ vec3 evalMicrofacets(){
                 vec3 radiance = light.m_radiance.rgb * att;
                 l = normalize(l);
                 
-                vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb);
+                vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb) * evalVisibility(frag_pos_light_proj);
 
                 shading += max( dot( n, l ), 0.0 ) * (shade) * radiance;
                 break;
@@ -138,10 +151,6 @@ vec3 evalMicrofacets(){
     }
 
     return shading;
-}
-
-vec3 evalVisibility(){
-
 }
 
 void main() 
