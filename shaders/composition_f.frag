@@ -13,6 +13,7 @@ struct LightData
     vec4 m_light_pos;
     vec4 m_radiance;
     vec4 m_attenuattion;
+    mat4 m_view_projection;
 };
 
 layout( std140, set = 0, binding = 0 ) uniform PerFrameData
@@ -34,6 +35,7 @@ layout ( set = 0, binding = 2 ) uniform sampler2D i_position_and_depth;
 layout ( set = 0, binding = 3 ) uniform sampler2D i_normal;
 layout ( set = 0, binding = 4 ) uniform sampler2D i_material;
 layout ( set = 0, binding = 5 ) uniform sampler2D i_ssao_blur;
+layout ( set = 0, binding = 6 ) uniform sampler2D i_shadow;
 
 layout(location = 0) out vec4 out_color;
 layout(location = 1) out vec4 out_bloom;
@@ -136,6 +138,10 @@ vec3 evalMicrofacets(){
     }
 
     return shading;
+}
+
+vec3 evalVisibility(){
+
 }
 
 void main() 

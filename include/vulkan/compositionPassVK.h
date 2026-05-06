@@ -18,6 +18,7 @@ namespace MiniEngine
                             const ImageBlock& i_in_normal_attachment,
                             const ImageBlock& i_in_material_attachment,
                             const ImageBlock& i_in_ssao_blur_attachment,
+                            const ImageBlock& i_in_shadow_attachment,
                             const ImageBlock& i_output_bloom_attachment,
                             const ImageBlock& i_output_hdr_attachment
                             //const std::array<ImageBlock, 3>& i_output_swap_images 
@@ -62,6 +63,7 @@ namespace MiniEngine
         ImageBlock m_in_normal_attachment;
         ImageBlock m_in_material_attachment;
         ImageBlock m_in_ssao_blur_attachment;
+        ImageBlock m_in_shadow_attachment;
         ImageBlock m_output_bloom_attachment;
         ImageBlock m_output_hdr_attachment;
     };

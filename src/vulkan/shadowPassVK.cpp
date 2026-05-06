@@ -33,13 +33,11 @@ bool ShadowPassVK::initialize()
 {
     RendererVK& renderer = *m_runtime.m_renderer;
 
-    m_entities_to_draw = {
-                            { static_cast<uint32_t>(Material::TMaterial::Diffuse), {} },
-                            { static_cast<uint32_t>(Material::TMaterial::Microfacets), {} }
-    };
+    m_entities_to_draw = {};
 
     //SHADER STAGES
     {
+        // vertex
         VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader("./shaders/vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 
         VkPipelineShaderStageCreateInfo vert_shader{};
@@ -49,6 +47,17 @@ bool ShadowPassVK::initialize()
         vert_shader.pName = "main";
 
         m_pipeline.m_shader_stage = vert_shader;
+
+        // geometry
+        VkShaderModule geom_module = m_runtime.m_shader_registry->loadShader("./shaders/shadows_geom.spv", VK_SHADER_STAGE_GEOMETRY_BIT);
+
+        VkPipelineShaderStageCreateInfo geom_shader{};
+        vert_shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vert_shader.stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+        vert_shader.module = geom_module;
+        vert_shader.pName = "main";
+
+        m_pipeline.m_shader_stage = geom_shader;
     }
 
     createRenderPass();
@@ -126,20 +135,13 @@ VkCommandBuffer ShadowPassVK::draw(const Frame& i_frame)
         throw MiniEngineException("failed to begin recording command buffer!");
     }
 
-    UtilsVK::beginRegion(current_cmd, "Depth Pass", Vector4f(0.0f, 0.5f, 0.0f, 1.0f));
+    UtilsVK::beginRegion(current_cmd, "Shadow Pass", Vector4f(0.0f, 0.5f, 0.0f, 1.0f));
     vkCmdBeginRenderPass(current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-
-    UtilsVK::beginRegion(current_cmd, "Depth Pass", Vector4f(0.0f, 0.5f, 0.5f, 1.0f));
 
     vkCmdBindPipeline(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.m_pipeline);
     vkCmdBindDescriptorSets(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.m_pipeline_layouts, 0, 2, &m_pipeline.m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_per_frame_descriptor, 0, nullptr);
 
-    for (auto entity : m_entities_to_draw[0])
-    {
-        entity->draw(current_cmd, i_frame);
-    }
-
-    for (auto entity : m_entities_to_draw[1])
+    for (auto &entity : m_entities_to_draw)
     {
         entity->draw(current_cmd, i_frame);
     }
@@ -159,15 +161,13 @@ VkCommandBuffer ShadowPassVK::draw(const Frame& i_frame)
 
 void ShadowPassVK::addEntityToDraw(const EntityPtr i_entity)
 {
-    m_entities_to_draw[static_cast<uint32_t>(i_entity->getMaterial().getType())].push_back(i_entity);
+    m_entities_to_draw.push_back(i_entity);
 }
 
 void ShadowPassVK::createFbo()
 {
     RendererVK& renderer = *m_runtime.m_renderer;
 
-    uint32_t width = 0, height = 0;
-    renderer.getWindow().getWindowSize(width, height);
 
     for (size_t i = 0; i < m_fbos.size(); i++)
     {
@@ -180,9 +180,9 @@ void ShadowPassVK::createFbo()
         framebuffer_create_info.renderPass = m_render_pass;
         framebuffer_create_info.attachmentCount = static_cast<uint32_t>(attachments.size());
         framebuffer_create_info.pAttachments = attachments.data();
-        framebuffer_create_info.width = width;
-        framebuffer_create_info.height = height;
-        framebuffer_create_info.layers = 1;
+        framebuffer_create_info.width = m_runtime.getShadowsSize();
+        framebuffer_create_info.height = m_runtime.getShadowsSize();
+        framebuffer_create_info.layers = m_runtime.getShadowsLayersNumber();
         // Create the framebuffer
 
         if (vkCreateFramebuffer(renderer.getDevice()->getLogicalDevice(), &framebuffer_create_info, nullptr, &m_fbos[i]))
@@ -413,7 +413,7 @@ void ShadowPassVK::createDescriptorLayout()
     per_frame_binding.binding = 0;
     per_frame_binding.descriptorCount = 1;
     per_frame_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    per_frame_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    per_frame_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT;
 
     VkDescriptorSetLayoutCreateInfo set_per_frame_info = {};
     set_per_frame_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

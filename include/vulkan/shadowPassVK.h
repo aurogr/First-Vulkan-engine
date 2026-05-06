@@ -54,7 +54,7 @@ namespace MiniEngine
         std::array<VkFramebuffer, 3>   m_fbos;
         VkDescriptorPool               m_descriptor_pool;
 
-        std::unordered_map<uint32_t, std::vector<EntityPtr>> m_entities_to_draw;
+        std::vector<EntityPtr> m_entities_to_draw;
 
         const ImageBlock m_depth_buffer;
     };

@@ -36,6 +36,22 @@ namespace MiniEngine
             return bloom_pingpong_passes;
 		}
 
+        inline uint32_t getShadowsSize() const
+        {
+            return shadows_size;
+		}
+
+        inline uint32_t getShadowsLayersNumber() const
+        {
+            return shadows_layers_number;
+		}
+        
+
+        inline uint32_t getShadowsMipMapNumber() const
+        {
+            return shadows_mipmap_number;
+		}
+
 
     private:
         explicit Runtime() = default;
@@ -57,6 +73,9 @@ namespace MiniEngine
 		std::array<VkDeviceMemory, kMAX_NUMBER_OF_FRAMES> m_post_process_buffer_memory;
 
         uint32_t bloom_pingpong_passes = 3;
+        uint32_t shadows_size = 1024;
+        uint32_t shadows_layers_number = 10;
+        uint32_t shadows_mipmap_number = 1;
 
         friend class Engine;
     };

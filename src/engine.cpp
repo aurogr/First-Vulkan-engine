@@ -17,6 +17,7 @@
 #include "vulkan/renderPassVK.h"
 #include "vulkan/deferredPassVK.h"
 #include "vulkan/depthPrePassVK.h"
+#include "vulkan/shadowPassVK.h"
 #include "vulkan/ssaoPassVK.h"
 #include "vulkan/ssaoBlurPassVK.h"
 #include "vulkan/compositionPassVK.h"
@@ -395,6 +396,12 @@ void Engine::createRenderPasses ()
 
     m_render_passes.push_back(ssao_blur_pass);
 
+    auto shadow_pass = std::make_shared<ShadowPassVK>(
+        m_runtime,
+        m_render_target_attachments.m_shadow_attachment
+    );
+    shadow_pass->initialize();
+
     auto composition_pass = std::make_shared<CompositionPassVK>(
         m_runtime,
         m_render_target_attachments.m_color_attachment,
@@ -402,6 +409,7 @@ void Engine::createRenderPasses ()
         m_render_target_attachments.m_normal_attachment,
         m_render_target_attachments.m_material_attachment,
         m_render_target_attachments.m_ssao_blur_attachment,
+        m_render_target_attachments.m_shadow_attachment,
         m_render_target_attachments.m_bloom_brightness_attachment,
         m_render_target_attachments.m_hdr_attachment);
     composition_pass->initialize();
@@ -481,6 +489,7 @@ void Engine::updateGlobalBuffers()
         perframe_data.m_lights[ perframe_data.m_number_of_lights ].m_light_pos    = Vector4f( light->m_data.m_position.x   , light->m_data.m_position.y   , light->m_data.m_position.z   , light->m_data.m_type );
         perframe_data.m_lights[ perframe_data.m_number_of_lights ].m_radiance     = Vector4f( light->m_data.m_radiance.x   , light->m_data.m_radiance.y   , light->m_data.m_radiance.z   , 0.0f                 );
         perframe_data.m_lights[ perframe_data.m_number_of_lights ].m_attenuattion = Vector4f( light->m_data.m_attenuation.x, light->m_data.m_attenuation.y, light->m_data.m_attenuation.z, 0.0f                 );
+        perframe_data.m_lights[ perframe_data.m_number_of_lights ].m_view_projection = light->getLightSpaceMatrix(light, m_scene->getCamera());
     }
 
 
@@ -530,10 +539,6 @@ void Engine::updateGlobalBuffers()
 void Engine::createAttachments()
 {
     uint32_t width, height;
-    uint32_t depth_size = 1024;
-    uint32_t depth_shadows = 10; // one for every layer (every supported light)
-    uint32_t mip_maps_shadows = 1;
-
     m_runtime.m_renderer->getWindow().getWindowSize( width, height );
 
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_color_attachment             );
@@ -547,7 +552,7 @@ void Engine::createAttachments()
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_h_ping_pong_attachment );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_v_ping_pong_attachment );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_hdr_attachment               );
-    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , depth_size, depth_size, depth_shadows, mip_maps_shadows, IMAGE_BLOCK_2D_ARRAY,  m_render_target_attachments.m_shadow_attachment);
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , m_runtime.shadows_size, m_runtime.shadows_size, m_runtime.shadows_layers_number, m_runtime.shadows_mipmap_number, IMAGE_BLOCK_2D_ARRAY,  m_render_target_attachments.m_shadow_attachment);
 
     m_render_target_attachments.m_color_attachment.m_sampler            = m_global_samplers[ 0 ];         
     m_render_target_attachments.m_normal_attachment.m_sampler           = m_global_samplers[ 0 ];        

@@ -21,6 +21,7 @@ CompositionPassVK::CompositionPassVK(
     const ImageBlock& i_in_normal_attachment,
     const ImageBlock& i_in_material_attachment,
     const ImageBlock& i_in_ssao_blur_attachment,
+    const ImageBlock& i_in_shadow_attachment,
     const ImageBlock& i_output_bloom_attachment,
     const ImageBlock& i_output_hdr_attachment
     //const std::array<ImageBlock, 3>& i_output_swap_images 
@@ -31,6 +32,7 @@ CompositionPassVK::CompositionPassVK(
     m_in_normal_attachment        ( i_in_normal_attachment    ),
     m_in_material_attachment      ( i_in_material_attachment  ),
     m_in_ssao_blur_attachment     ( i_in_ssao_blur_attachment),
+    m_in_shadow_attachment        ( i_in_shadow_attachment),
     m_output_bloom_attachment     ( i_output_bloom_attachment),
     m_output_hdr_attachment       (i_output_hdr_attachment)
     //m_output_swap_images( i_output_swap_images ) 
@@ -537,7 +539,7 @@ void CompositionPassVK::createDescriptors()
         binfo.offset    = 0;
         binfo.range     = sizeof( PerFrameData );
 
-        std::array<VkDescriptorImageInfo, 5> image_infos;
+        std::array<VkDescriptorImageInfo, 6> image_infos;
         image_infos[ 0 ].sampler     = m_in_color_attachment.m_sampler;
         image_infos[ 0 ].imageView   = m_in_color_attachment.m_image_view;
         image_infos[ 0 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -558,8 +560,12 @@ void CompositionPassVK::createDescriptors()
         image_infos[ 4 ].imageView   = m_in_ssao_blur_attachment.m_image_view;
         image_infos[ 4 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+        image_infos[ 5 ].sampler     = m_in_shadow_attachment.m_sampler;
+        image_infos[ 5 ].imageView   = m_in_shadow_attachment.m_image_view;
+        image_infos[ 5 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        std::array<VkWriteDescriptorSet, 6> set_write;
+
+        std::array<VkWriteDescriptorSet, 7> set_write;
 
         set_write[ 0 ]                   = {};
         set_write[ 0 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -615,6 +621,15 @@ void CompositionPassVK::createDescriptors()
         set_write[ 5 ].descriptorCount   = 1;
         set_write[ 5 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         set_write[ 5 ].pImageInfo        = &image_infos[ 4 ];
+
+        set_write[ 6 ]                   = {};
+        set_write[ 6 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        set_write[ 6 ].pNext             = nullptr;
+        set_write[ 6 ].dstBinding        = 6;
+        set_write[ 6 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
+        set_write[ 6 ].descriptorCount   = 1;
+        set_write[ 6 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        set_write[ 6 ].pImageInfo        = &image_infos[ 5 ];
 
         vkUpdateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr );
     }

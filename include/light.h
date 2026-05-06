@@ -33,7 +33,7 @@ class Light final
     }
 
     static std::shared_ptr<Light> createLight(const Runtime &i_runtime, const pugi::xml_node &emitter);
-    static Matrix4f getLightSpaceMatrix(std::shared_ptr<Light> i_light, Camera &i_camera);
+    static Matrix4f getLightSpaceMatrix(std::shared_ptr<Light> i_light, const Camera &i_camera);
 
     // we use this structure to define the light uniform buffer
     struct LightData
