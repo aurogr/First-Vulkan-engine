@@ -52,6 +52,7 @@ include/vulkan/rendererVK.h
 include/vulkan/deviceVK.h
 include/vulkan/windowVK.h
 include/vulkan/meshVK.h
+include/vulkan/extensionsVK.h
 
 #render passes
 include/vulkan/renderPassVK.h
@@ -62,7 +63,7 @@ include/vulkan/ssaoPassVK.h
 include/vulkan/ssaoBlurPassVK.h
 include/vulkan/bloomPassVK.h
 include/vulkan/postProcessPassVK.h
-include/vulkan/extensionsVK.h
+include/vulkan/shadowPassVK.h
 
 #CPPS
 main.cpp
@@ -96,6 +97,7 @@ src/vulkan/ssaoPassVK.cpp
 src/vulkan/ssaoBlurPassVK.cpp
 src/vulkan/bloomPassVK.cpp
 src/vulkan/postProcessPassVK.cpp
+src/vulkan/shadowPassVK.cpp
 )
 
 
