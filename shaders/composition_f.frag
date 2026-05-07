@@ -35,7 +35,7 @@ layout ( set = 0, binding = 2 ) uniform sampler2D i_position_and_depth;
 layout ( set = 0, binding = 3 ) uniform sampler2D i_normal;
 layout ( set = 0, binding = 4 ) uniform sampler2D i_material;
 layout ( set = 0, binding = 5 ) uniform sampler2D i_ssao_blur;
-layout ( set = 0, binding = 6 ) uniform sampler2D i_shadow;
+layout ( set = 0, binding = 6 ) uniform sampler2DArray i_shadow;
 
 layout(location = 0) out vec4 out_color;
 layout(location = 1) out vec4 out_bloom;
@@ -90,11 +90,12 @@ vec3 shadeMicrofacets(vec3 v, vec3 l, vec3 n, float metallic, float roughness, v
     return diffuse + spec; 
 }
 
-float evalVisibility(vec4 frag_pos_light_proj){
+float evalVisibility(vec4 frag_pos_light_proj, uint layerIdx){
     vec3 projCoords = frag_pos_light_proj.xyz / frag_pos_light_proj.w;
     projCoords = projCoords * 0.5 + 0.5; 
+    vec3 layerCoords = vec3(projCoords.xy, float(layerIdx));
 
-    float closestDepth = texture(i_shadow, projCoords.xy).r;   
+    float closestDepth = texture(i_shadow, layerCoords).r;   
     float currentDepth = projCoords.z; 
 
     return currentDepth > closestDepth  ? 1.0 : 0.0;  
@@ -126,7 +127,7 @@ vec3 evalMicrofacets(){
 
                 vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb);
                 
-                shading += max( dot( n, l ), 0.0 ) * light.m_radiance.rgb * (shade) * evalVisibility(frag_pos_light_proj);
+                shading += max( dot( n, l ), 0.0 ) * light.m_radiance.rgb * (shade) * evalVisibility(frag_pos_light_proj, id_light);
                 break;
             }
             case 1: //point
@@ -137,7 +138,7 @@ vec3 evalMicrofacets(){
                 vec3 radiance = light.m_radiance.rgb * att;
                 l = normalize(l);
                 
-                vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb) * evalVisibility(frag_pos_light_proj);
+                vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb) * evalVisibility(frag_pos_light_proj, id_light);
 
                 shading += max( dot( n, l ), 0.0 ) * (shade) * radiance;
                 break;

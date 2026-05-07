@@ -445,7 +445,7 @@ void CompositionPassVK::createPipelines()
 
 void CompositionPassVK::createDescriptorLayout()
 {
-    std::array<VkDescriptorSetLayoutBinding, 6> layout_bindings;
+    std::array<VkDescriptorSetLayoutBinding, 7> layout_bindings;
 
     ////// PER FRAME
     layout_bindings[ 0 ] = {};
@@ -484,6 +484,12 @@ void CompositionPassVK::createDescriptorLayout()
     layout_bindings[ 5 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     layout_bindings[ 5 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+    layout_bindings[ 6 ] = {};
+    layout_bindings[ 6 ].binding                      = 6;
+    layout_bindings[ 6 ].descriptorCount              = 1;
+    layout_bindings[ 6 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    layout_bindings[ 6 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
+
 
     VkDescriptorSetLayoutCreateInfo set_attachment_color_info = {};
     set_attachment_color_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -505,7 +511,7 @@ void CompositionPassVK::createDescriptors()
     std::vector<VkDescriptorPoolSize> sizes =
     {
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER        , 10 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10 }
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 60 }
     };
 
     VkDescriptorPoolCreateInfo pool_info = {};

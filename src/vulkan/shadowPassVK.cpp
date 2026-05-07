@@ -46,18 +46,18 @@ bool ShadowPassVK::initialize()
         vert_shader.module = vert_module;
         vert_shader.pName = "main";
 
-        m_pipeline.m_shader_stage = vert_shader;
+        m_pipeline.m_shader_stages[0] = vert_shader;
 
         // geometry
         VkShaderModule geom_module = m_runtime.m_shader_registry->loadShader("./shaders/shadows_geom.spv", VK_SHADER_STAGE_GEOMETRY_BIT);
 
         VkPipelineShaderStageCreateInfo geom_shader{};
-        vert_shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        vert_shader.stage = VK_SHADER_STAGE_GEOMETRY_BIT;
-        vert_shader.module = geom_module;
-        vert_shader.pName = "main";
+        geom_shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        geom_shader.stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+        geom_shader.module = geom_module;
+        geom_shader.pName = "main";
 
-        m_pipeline.m_shader_stage = geom_shader;
+        m_pipeline.m_shader_stages[1] = geom_shader;
     }
 
     createRenderPass();
@@ -115,15 +115,13 @@ VkCommandBuffer ShadowPassVK::draw(const Frame& i_frame)
     VkCommandBufferBeginInfo begin_info{};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    uint32_t width = 0, height = 0;
-    renderer.getWindow().getWindowSize(width, height);
-
     VkRenderPassBeginInfo render_pass_info{};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_info.renderPass = m_render_pass;
     render_pass_info.framebuffer = m_fbos[renderer.getWindow().getCurrentImageId()];
     render_pass_info.renderArea.offset = { 0, 0 };
-    render_pass_info.renderArea.extent = { width, height };
+    uint32_t shadowSize = m_runtime.getShadowsSize();
+    render_pass_info.renderArea.extent = { shadowSize, shadowSize };
 
     VkClearValue clear_values[1];
     clear_values[0].depthStencil = { 1.0f, 0 };
@@ -334,21 +332,19 @@ void ShadowPassVK::createPipelines()
     multisampling.flags = 0;
 
 
-    uint32 width = 0, height = 0;
-    renderer.getWindow().getWindowSize(width, height);
-    VkExtent2D extend{ width, height };
+    uint32_t shadowSize = m_runtime.getShadowsSize();
 
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)width;
-    viewport.height = (float)height;
+    viewport.width = (float)shadowSize;  // Use shadowSize, not window width
+    viewport.height = (float)shadowSize; // Use shadowSize, not window height
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor{};
     scissor.offset = { 0, 0 };
-    scissor.extent = extend;
+    scissor.extent = { shadowSize, shadowSize };
 
     VkPipelineViewportStateCreateInfo viewport_state{};
     viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -390,8 +386,8 @@ void ShadowPassVK::createPipelines()
     pipeline_info.pViewportState = &viewport_state;
     pipeline_info.pDepthStencilState = &depth_stencil;
     pipeline_info.pDynamicState = VK_NULL_HANDLE;
-    pipeline_info.stageCount = 1;
-    pipeline_info.pStages = &m_pipeline.m_shader_stage;
+    pipeline_info.stageCount = 2;
+    pipeline_info.pStages = m_pipeline.m_shader_stages.data();
     pipeline_info.flags = 0;
     pipeline_info.pVertexInputState = &vertex_input_info;
     pipeline_info.subpass = 0;
