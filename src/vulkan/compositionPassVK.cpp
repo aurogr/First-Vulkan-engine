@@ -568,7 +568,7 @@ void CompositionPassVK::createDescriptors()
 
         image_infos[ 5 ].sampler     = m_in_shadow_attachment.m_sampler;
         image_infos[ 5 ].imageView   = m_in_shadow_attachment.m_image_view;
-        image_infos[ 5 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        image_infos[ 5 ].imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
 
         std::array<VkWriteDescriptorSet, 7> set_write;

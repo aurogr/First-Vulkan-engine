@@ -555,7 +555,7 @@ void Engine::createAttachments()
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_h_ping_pong_attachment );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_v_ping_pong_attachment );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_hdr_attachment               );
-    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_D32_SFLOAT         , VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT , m_runtime.shadows_size, m_runtime.shadows_size, m_runtime.shadows_layers_number, m_runtime.shadows_mipmap_number, IMAGE_BLOCK_2D_ARRAY,  m_render_target_attachments.m_shadow_attachment);
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_D32_SFLOAT_S8_UINT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT , m_runtime.shadows_size, m_runtime.shadows_size, m_runtime.shadows_layers_number, m_runtime.shadows_mipmap_number, IMAGE_BLOCK_2D_ARRAY,  m_render_target_attachments.m_shadow_attachment);
 
     m_render_target_attachments.m_color_attachment.m_sampler            = m_global_samplers[ 0 ];         
     m_render_target_attachments.m_normal_attachment.m_sampler           = m_global_samplers[ 0 ];        

@@ -1,11 +1,11 @@
 #version 460
 
-layout(triangles, invocations = 10) in;
-layout(triangle_strip, max_vertices = 3) out;
-
 #extension GL_ARB_shader_draw_parameters : enable
 
-layout( location = 0 ) in vec3 g_position[];
+//inputs
+layout( location = 0 ) in vec3 v_positions;
+layout( location = 1 ) in vec3 v_normals;
+layout( location = 2 ) in vec2 v_uvs;
 
 //globals
 struct LightData
@@ -31,17 +31,23 @@ layout( std140, set = 0, binding = 0 ) uniform PerFrameData
 } per_frame_data;
 
 
+struct ObjectData
+{
+    mat4 m_model;
+    vec4 m_albedo; 
+    vec4 m_metallic_roughness;
+};
+
+//all object matrices
+layout(std140,set = 1, binding = 0) readonly buffer ObjectBufferData
+{
+    ObjectData objects[];
+} per_object_data;
+
+
+layout( location = 0 ) out vec3 g_position;
 
 void main() {
-    if (gl_InvocationID >= per_frame_data.m_number_of_lights) {
-        return;
-    }
-     gl_Layer = gl_InvocationID;
-
-       for (int j = 0; j < 3; ++j){
-            gl_Position = per_frame_data.m_lights[gl_InvocationID].m_view_projection * vec4(g_position[j], 1.0);
-
-            EmitVertex();
-       }
-       EndPrimitive();
+    vec4 worldPos = per_object_data.objects[ gl_BaseInstance ].m_model * vec4(v_positions, 1.0);
+    g_position = worldPos.xyz; 
 }

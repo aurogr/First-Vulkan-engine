@@ -10,3 +10,4 @@ C:\VulkanSDK\1.4.341.1\Bin\glslc.exe ssao_blur_f.frag -o ssao_blur_f.spv
 C:\VulkanSDK\1.4.341.1\Bin\glslc.exe post_process_f.frag -o post_process_f.spv
 C:\VulkanSDK\1.4.341.1\Bin\glslc.exe bloom_f.frag -o bloom_f.spv
 C:\VulkanSDK\1.4.341.1\Bin\glslc.exe shadows.geom -o shadows_geom.spv
+C:\VulkanSDK\1.4.341.1\Bin\glslc.exe shadows.vert -o shadows_vert.spv
