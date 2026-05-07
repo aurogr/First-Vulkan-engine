@@ -13,7 +13,7 @@ namespace MiniEngine
     public:
         ShadowPassVK(
             const Runtime& i_runtime,
-            const ImageBlock& i_depth_buffer);
+            const ImageBlock& i_m_shadows);
         virtual ~ShadowPassVK();
 
         bool            initialize() override;
@@ -56,6 +56,6 @@ namespace MiniEngine
 
         std::vector<EntityPtr> m_entities_to_draw;
 
-        const ImageBlock m_depth_buffer;
+        const ImageBlock m_shadows;
     };
 };

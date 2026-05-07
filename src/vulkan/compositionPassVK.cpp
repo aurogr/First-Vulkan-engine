@@ -634,7 +634,7 @@ void CompositionPassVK::createDescriptors()
         set_write[ 6 ].dstBinding        = 6;
         set_write[ 6 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
         set_write[ 6 ].descriptorCount   = 1;
-        set_write[ 6 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        set_write[ 6 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; 
         set_write[ 6 ].pImageInfo        = &image_infos[ 5 ];
 
         vkUpdateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr );
