@@ -167,7 +167,7 @@ std::shared_ptr<Camera> Camera::createCamera( const Runtime& i_runtime, const pu
 
         if( i_camera_node.find_child_by_attribute( "name", "near" ) )
         {
-            camera->m_far = toFloat( i_camera_node.find_child_by_attribute ( "name", "near"  ).attribute("value").value() );
+            camera->m_near = toFloat( i_camera_node.find_child_by_attribute ( "name", "near"  ).attribute("value").value() );
         }
     }
 

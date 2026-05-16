@@ -153,6 +153,7 @@ void Engine::run()
 	bool shadowBiasEnabled = true;
     float shadowBiasConst = 1.0f;
     float shadowBiasSlope = 1.5f;
+    bool shadowPCFEnabled = true;
 
     bool loop = true;
     while( loop && m_scene ) 
@@ -174,6 +175,7 @@ void Engine::run()
             ImGui::Checkbox("Shadow bias", &shadowBiasEnabled);
             ImGui::SliderFloat("Shadow bias constant factor", &shadowBiasConst, 0, 10);
             ImGui::SliderFloat("Shadow bias slope factor", &shadowBiasSlope, 0, 10);
+            ImGui::Checkbox("Shadow PCF", &shadowPCFEnabled);
         }
         if (ImGui::CollapsingHeader("Color settings"))
         {
@@ -196,6 +198,7 @@ void Engine::run()
 		m_runtime.shadow_bias_enabled = shadowBiasEnabled;
 		m_runtime.shadows_bias_const = shadowBiasConst;
 		m_runtime.shadows_bias_slope = shadowBiasSlope;
+        m_runtime.shadow_pcf_enabled = shadowPCFEnabled;
 
         void* data;
         vkMapMemory(m_runtime.m_renderer->getDevice()->getLogicalDevice(), m_runtime.m_post_process_buffer_memory[m_current_frame % 3], 0, sizeof(PostProcessData), 0, &data);
@@ -585,7 +588,7 @@ void Engine::createAttachments()
     m_render_target_attachments.m_bloom_h_ping_pong_attachment.m_sampler= m_global_samplers[ 0 ];
     m_render_target_attachments.m_bloom_v_ping_pong_attachment.m_sampler= m_global_samplers[ 0 ];
     m_render_target_attachments.m_hdr_attachment.m_sampler              = m_global_samplers[ 0 ]; 
-    m_render_target_attachments.m_shadow_attachment.m_sampler           = m_global_samplers[ 0 ]; 
+    m_render_target_attachments.m_shadow_attachment.m_sampler           = m_global_samplers[ 0 ];
 
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_color_attachment.m_image               ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Color Attachment"          );
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_normal_attachment.m_image              ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Normal Attachment "        );
@@ -641,7 +644,34 @@ void Engine::createSamplers()
         throw MiniEngineException( "Error creating sampler" );
     }
 
-    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)m_global_samplers[ 0 ], VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT, "Global Sampler"  );
+    UtilsVK::setObjectName(m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)m_global_samplers[0], VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT, "Global Sampler");
+
+    // bilinear sampling for pcf filter on shadows
+    VkSamplerCreateInfo shadowSampler{};
+    shadowSampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    shadowSampler.magFilter = VK_FILTER_LINEAR;
+    shadowSampler.minFilter = VK_FILTER_LINEAR;
+    shadowSampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    shadowSampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    shadowSampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    shadowSampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    shadowSampler.mipLodBias = 0.0f;
+    shadowSampler.maxAnisotropy = 1.0f;
+    shadowSampler.minLod = 0.0f;
+    shadowSampler.maxLod = 1.0f;
+    shadowSampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    shadowSampler.compareEnable = VK_TRUE;
+    shadowSampler.compareOp = VK_COMPARE_OP_GREATER;
+
+    if (VK_SUCCESS != vkCreateSampler(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &shadowSampler, nullptr, &m_global_samplers[1]))
+    {
+        throw MiniEngineException("Error creating sampler");
+    }
+
+    UtilsVK::setObjectName(m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)m_global_samplers[1], VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT, "PCF Shadow Sampler");
+
+
+    m_runtime.m_pcf_sampler = m_global_samplers[1];
 }
 
 

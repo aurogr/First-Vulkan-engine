@@ -5,6 +5,10 @@
 #define PI   3.14159265358979323846264338327950288
 #define EPSILON   0.001
 
+layout (push_constant) uniform Block {
+    uint pcf;
+} push;
+
 layout( location = 0 ) in vec2 f_uvs;
 
 //globals
@@ -36,6 +40,7 @@ layout ( set = 0, binding = 3 ) uniform sampler2D i_normal;
 layout ( set = 0, binding = 4 ) uniform sampler2D i_material;
 layout ( set = 0, binding = 5 ) uniform sampler2D i_ssao_blur;
 layout ( set = 0, binding = 6 ) uniform sampler2DArray i_shadow;
+layout ( set = 0, binding = 7 ) uniform sampler2DArrayShadow i_shadow_PCF;
 
 layout(location = 0) out vec4 out_color;
 layout(location = 1) out vec4 out_bloom;
@@ -99,12 +104,19 @@ float shadowCalc(vec4 frag_pos_light_proj, uint layerIdx)
     vec2 shadowUV = projCoords.xy * 0.5 + 0.5;
     vec3 layerCoords = vec3(shadowUV, float(layerIdx));
 
-    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords
-    float closestDepth = texture(i_shadow, layerCoords).r;
-
-    // check whether current frag pos is in shadow
     float currentDepth = projCoords.z; 
-    return (currentDepth) > closestDepth  ? 1.0 : 0.0;
+
+    if (push.pcf == 1) {
+        // Use the hardware PCF pipeline pathway
+        vec4 textureCoords = vec4(layerCoords, currentDepth);
+        return texture(i_shadow_PCF, textureCoords); 
+    } else {
+        // get closest depth value from light's perspective
+        float closestDepth = texture(i_shadow, layerCoords).r;
+
+        // check whether current frag pos is in shadow
+        return (currentDepth) > closestDepth  ? 1.0 : 0.0;
+    }
 }
 
 vec3 evalMicrofacets(){

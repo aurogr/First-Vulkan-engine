@@ -327,12 +327,12 @@ void BloomBlurPassVK::createPipelines()
     input_assembly.primitiveRestartEnable   = VK_FALSE;
     input_assembly.flags                    = 0;
 
-    //create unfiorms 
+    //create uniforms
     createDescriptorLayout();
     VkPushConstantRange push_constant_range{};
-    push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // Match your shader
+    push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     push_constant_range.offset = 0;
-    push_constant_range.size = sizeof(uint32_t); // Size of your 'horizontal' bool/uint
+    push_constant_range.size = sizeof(uint32_t);
 
     VkPipelineLayoutCreateInfo pipeline_layout_info{};
     pipeline_layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

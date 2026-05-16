@@ -14,6 +14,7 @@ namespace MiniEngine
         std::unique_ptr<RendererVK>     m_renderer;
         std::unique_ptr<ShaderRegistry> m_shader_registry;
         std::unique_ptr<MeshRegistry>   m_mesh_registry;
+        VkSampler m_pcf_sampler = VK_NULL_HANDLE;
         
 
         inline const std::array<VkBuffer, kMAX_NUMBER_OF_FRAMES> getPerFrameBuffer() const
@@ -44,6 +45,11 @@ namespace MiniEngine
         inline bool getShadowBiasEnabled() const
         {
             return shadow_bias_enabled;
+		}
+
+        inline bool getShadowPCFEnabled() const
+        {
+            return shadow_pcf_enabled;
 		}
 
         inline uint32_t getBloomPingPongPasses() const
@@ -91,6 +97,7 @@ namespace MiniEngine
         bool shadow_bias_enabled = false;
         float shadows_bias_const = 4.0f;
         float shadows_bias_slope = 5.0f;
+        bool shadow_pcf_enabled = false;
         uint32_t shadows_size = 2048;
         uint32_t shadows_layers_number = 10;
         uint32_t shadows_mipmap_number = 1;

@@ -161,6 +161,8 @@ VkCommandBuffer CompositionPassVK::draw( const Frame& i_frame)
     vkCmdBeginRenderPass( current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE );
 
     vkCmdBindPipeline( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_composition_pipeline );
+    uint32_t pcfValue = m_runtime.getShadowPCFEnabled() ? 1 : 0;
+    vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &pcfValue);
     vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[ renderer.getWindow().getCurrentImageId() ].m_textures_descriptor, 0, NULL);
 				
     m_plane->draw( current_cmd, 0 );
@@ -320,12 +322,17 @@ void CompositionPassVK::createPipelines()
     //create unfiorms 
     createDescriptorLayout();
 
+    VkPushConstantRange push_constant_range{};
+    push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    push_constant_range.offset = 0;
+    push_constant_range.size = sizeof(uint32_t);
+
     VkPipelineLayoutCreateInfo pipeline_layout_info{};
     pipeline_layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeline_layout_info.setLayoutCount         = 1;
     pipeline_layout_info.pSetLayouts            = &m_descriptor_set_layout;
-    pipeline_layout_info.pPushConstantRanges    = VK_NULL_HANDLE;
-    pipeline_layout_info.pushConstantRangeCount = 0;
+    pipeline_layout_info.pPushConstantRanges    = &push_constant_range;
+    pipeline_layout_info.pushConstantRangeCount = 1;
     pipeline_layout_info.flags                  = 0;
 
 
@@ -445,7 +452,7 @@ void CompositionPassVK::createPipelines()
 
 void CompositionPassVK::createDescriptorLayout()
 {
-    std::array<VkDescriptorSetLayoutBinding, 7> layout_bindings;
+    std::array<VkDescriptorSetLayoutBinding, 8> layout_bindings;
 
     ////// PER FRAME
     layout_bindings[ 0 ] = {};
@@ -489,6 +496,12 @@ void CompositionPassVK::createDescriptorLayout()
     layout_bindings[ 6 ].descriptorCount              = 1;
     layout_bindings[ 6 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     layout_bindings[ 6 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    layout_bindings[ 7 ] = {};
+    layout_bindings[ 7 ].binding                      = 7;
+    layout_bindings[ 7 ].descriptorCount              = 1;
+    layout_bindings[ 7 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    layout_bindings[ 7 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
 
 
     VkDescriptorSetLayoutCreateInfo set_attachment_color_info = {};
@@ -545,7 +558,7 @@ void CompositionPassVK::createDescriptors()
         binfo.offset    = 0;
         binfo.range     = sizeof( PerFrameData );
 
-        std::array<VkDescriptorImageInfo, 6> image_infos;
+        std::array<VkDescriptorImageInfo, 7> image_infos;
         image_infos[ 0 ].sampler     = m_in_color_attachment.m_sampler;
         image_infos[ 0 ].imageView   = m_in_color_attachment.m_image_view;
         image_infos[ 0 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -570,8 +583,12 @@ void CompositionPassVK::createDescriptors()
         image_infos[ 5 ].imageView   = m_in_shadow_attachment.m_image_view;
         image_infos[ 5 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+        image_infos[ 6 ].sampler     = m_runtime.m_pcf_sampler;
+        image_infos[ 6 ].imageView   = m_in_shadow_attachment.m_image_view;
+        image_infos[ 6 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        std::array<VkWriteDescriptorSet, 7> set_write;
+
+        std::array<VkWriteDescriptorSet, 8> set_write;
 
         set_write[ 0 ]                   = {};
         set_write[ 0 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -636,6 +653,15 @@ void CompositionPassVK::createDescriptors()
         set_write[ 6 ].descriptorCount   = 1;
         set_write[ 6 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; 
         set_write[ 6 ].pImageInfo        = &image_infos[ 5 ];
+
+        set_write[ 7 ]                   = {};
+        set_write[ 7 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        set_write[ 7 ].pNext             = nullptr;
+        set_write[ 7 ].dstBinding        = 7;
+        set_write[ 7 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
+        set_write[ 7 ].descriptorCount   = 1;
+        set_write[ 7 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; 
+        set_write[ 7 ].pImageInfo        = &image_infos[ 6 ];
 
         vkUpdateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr );
     }

@@ -59,7 +59,7 @@ namespace MiniEngine
         std::shared_ptr<Scene> m_scene;
         
         Attachments m_render_target_attachments;
-        std::array<VkSampler, 1> m_global_samplers;
+        std::array<VkSampler, 2> m_global_samplers;
 		VkDescriptorPool m_imgui_descriptor_pool;
     };
 };
