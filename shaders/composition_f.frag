@@ -90,15 +90,21 @@ vec3 shadeMicrofacets(vec3 v, vec3 l, vec3 n, float metallic, float roughness, v
     return diffuse + spec; 
 }
 
-float evalVisibility(vec4 frag_pos_light_proj, uint layerIdx){
+float shadowCalc(vec4 frag_pos_light_proj, uint layerIdx)
+{
+    // perform perspective divide
     vec3 projCoords = frag_pos_light_proj.xyz / frag_pos_light_proj.w;
-    projCoords = projCoords * 0.5 + 0.5; 
-    vec3 layerCoords = vec3(projCoords.xy, float(layerIdx));
+    
+     // transform to [0,1] range (z in vulkan is already correct so we dont need to remap it)
+    vec2 shadowUV = projCoords.xy * 0.5 + 0.5;
+    vec3 layerCoords = vec3(shadowUV, float(layerIdx));
 
-    float closestDepth = texture(i_shadow, layerCoords).r;   
+    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords
+    float closestDepth = texture(i_shadow, layerCoords).r;
+
+    // check whether current frag pos is in shadow
     float currentDepth = projCoords.z; 
-
-    return currentDepth > closestDepth  ? 1.0 : 0.0;  
+    return (currentDepth) > closestDepth  ? 1.0 : 0.0;
 }
 
 vec3 evalMicrofacets(){
@@ -117,7 +123,7 @@ vec3 evalMicrofacets(){
         LightData light = per_frame_data.m_lights[ id_light ];
         uint light_type = uint( floor( light.m_light_pos.a ) );
 
-        vec4 frag_pos_light_proj = vec4(frag_pos, 1.0) * per_frame_data.m_lights[ id_light ].m_view_projection;
+        vec4 frag_pos_light_proj = per_frame_data.m_lights[ id_light ].m_view_projection * vec4(frag_pos, 1.0);
 
         switch( light_type )
         {
@@ -127,7 +133,7 @@ vec3 evalMicrofacets(){
 
                 vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb);
                 
-                shading += max( dot( n, l ), 0.0 ) * light.m_radiance.rgb * (shade) * evalVisibility(frag_pos_light_proj, id_light);
+                shading += max( dot( n, l ), 0.0 ) * light.m_radiance.rgb * (shade) * (1 - shadowCalc(frag_pos_light_proj, id_light));
                 break;
             }
             case 1: //point
@@ -138,7 +144,7 @@ vec3 evalMicrofacets(){
                 vec3 radiance = light.m_radiance.rgb * att;
                 l = normalize(l);
                 
-                vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb) * evalVisibility(frag_pos_light_proj, id_light);
+                vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb) * (1 - shadowCalc(frag_pos_light_proj, id_light));
 
                 shading += max( dot( n, l ), 0.0 ) * (shade) * radiance;
                 break;

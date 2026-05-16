@@ -144,10 +144,15 @@ void Engine::run()
 
     initImgui();
 
+    // color settings
 	float exposureValue = 1.0f;
 	int pingpongPasses = 3.0f;
-	float chromaticAberrationStrength = 3.0f;
+	float chromaticAberrationStrength = 0.0f;
 	bool toneMappingEnabled = true;
+    // shadow settings
+	bool shadowBiasEnabled = true;
+    float shadowBiasConst = 1.0f;
+    float shadowBiasSlope = 1.5f;
 
     bool loop = true;
     while( loop && m_scene ) 
@@ -161,13 +166,22 @@ void Engine::run()
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+        ImGui::Begin("Settings");
 
-        ImGui::Begin("Post-Processing");
-        ImGui::SliderInt("Bloom PingPong Passes", &pingpongPasses, 1, 10);
-        ImGui::SliderFloat("Chromatic aberration strength", &chromaticAberrationStrength, 0, 10);
-        ImGui::SliderFloat("Exposure", &exposureValue, 0.01f, 5.0f);
-        ImGui::Checkbox("Tone Mapping", &toneMappingEnabled);
-        ImGui::Text("Average %.2f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::PushItemWidth(150.0f);
+        if (ImGui::CollapsingHeader("Shadow Settings"))
+        {
+            ImGui::Checkbox("Shadow bias", &shadowBiasEnabled);
+            ImGui::SliderFloat("Shadow bias constant factor", &shadowBiasConst, 0, 10);
+            ImGui::SliderFloat("Shadow bias slope factor", &shadowBiasSlope, 0, 10);
+        }
+        if (ImGui::CollapsingHeader("Color settings"))
+        {
+            ImGui::SliderInt("Bloom PingPong Passes", &pingpongPasses, 1, 10);
+            ImGui::SliderFloat("Chromatic aberration strength", &chromaticAberrationStrength, 0, 10);
+            ImGui::SliderFloat("Exposure", &exposureValue, 0.01f, 5.0f);
+            ImGui::Checkbox("Tone Mapping", &toneMappingEnabled);
+        }
         ImGui::End();
 
         ImGui::Render();
@@ -179,6 +193,9 @@ void Engine::run()
         ubo.m_chromatic_aberration_strength = chromaticAberrationStrength;
 
 		m_runtime.bloom_pingpong_passes = pingpongPasses;
+		m_runtime.shadow_bias_enabled = shadowBiasEnabled;
+		m_runtime.shadows_bias_const = shadowBiasConst;
+		m_runtime.shadows_bias_slope = shadowBiasSlope;
 
         void* data;
         vkMapMemory(m_runtime.m_renderer->getDevice()->getLogicalDevice(), m_runtime.m_post_process_buffer_memory[m_current_frame % 3], 0, sizeof(PostProcessData), 0, &data);

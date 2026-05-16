@@ -31,6 +31,21 @@ namespace MiniEngine
             return m_post_process_buffer;
         }
 
+        inline float getShadowBiasConst() const
+        {
+            return shadow_bias_enabled;
+		}
+
+        inline float getShadowBiasSlope() const
+        {
+            return shadows_bias_slope;
+		}
+
+        inline bool getShadowBiasEnabled() const
+        {
+            return shadow_bias_enabled;
+		}
+
         inline uint32_t getBloomPingPongPasses() const
         {
             return bloom_pingpong_passes;
@@ -73,7 +88,10 @@ namespace MiniEngine
 		std::array<VkDeviceMemory, kMAX_NUMBER_OF_FRAMES> m_post_process_buffer_memory;
 
         uint32_t bloom_pingpong_passes = 3;
-        uint32_t shadows_size = 1024;
+        bool shadow_bias_enabled = false;
+        float shadows_bias_const = 4.0f;
+        float shadows_bias_slope = 5.0f;
+        uint32_t shadows_size = 2048;
         uint32_t shadows_layers_number = 10;
         uint32_t shadows_mipmap_number = 1;
 

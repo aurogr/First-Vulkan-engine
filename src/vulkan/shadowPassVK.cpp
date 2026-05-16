@@ -137,6 +137,16 @@ VkCommandBuffer ShadowPassVK::draw(const Frame& i_frame)
     vkCmdBeginRenderPass(current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.m_pipeline);
+
+    if (m_runtime.getShadowBiasEnabled())
+    {
+        vkCmdSetDepthBias(current_cmd, m_runtime.getShadowBiasConst(), 0.0f, m_runtime.getShadowBiasSlope());
+    }
+    else
+    {
+        vkCmdSetDepthBias(current_cmd, 0.0f, 0.0f, 0.0f);
+    }
+
     vkCmdBindDescriptorSets(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.m_pipeline_layouts, 0, 2, &m_pipeline.m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_per_frame_descriptor, 0, nullptr);
 
     for (auto &entity : m_entities_to_draw)
@@ -310,11 +320,19 @@ void ShadowPassVK::createPipelines()
     raster_info.polygonMode = VkPolygonMode::VK_POLYGON_MODE_FILL;
     raster_info.cullMode = VK_CULL_MODE_NONE;
     raster_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    raster_info.depthBiasEnable = VK_FALSE;
-    raster_info.depthBiasConstantFactor = 0.f;
-    raster_info.depthBiasClamp = VK_FALSE;
-    raster_info.depthBiasSlopeFactor = 0.f;
     raster_info.lineWidth = 1.f;
+    raster_info.depthBiasEnable = VK_TRUE;
+
+    // Dynamic shadow bias to be able to change it form imGui
+    std::vector<VkDynamicState> dynamic_states = {
+        VK_DYNAMIC_STATE_DEPTH_BIAS
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamic_info{};
+    dynamic_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic_info.dynamicStateCount = static_cast<uint32_t>(dynamic_states.size());
+    dynamic_info.pDynamicStates = dynamic_states.data();
+
 
     VkPipelineColorBlendStateCreateInfo color_blending{};
     color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -383,7 +401,7 @@ void ShadowPassVK::createPipelines()
     pipeline_info.pMultisampleState = &multisampling;
     pipeline_info.pViewportState = &viewport_state;
     pipeline_info.pDepthStencilState = &depth_stencil;
-    pipeline_info.pDynamicState = VK_NULL_HANDLE;
+    pipeline_info.pDynamicState = &dynamic_info;
     pipeline_info.stageCount = 2;
     pipeline_info.pStages = m_pipeline.m_shader_stages.data();
     pipeline_info.flags = 0;
