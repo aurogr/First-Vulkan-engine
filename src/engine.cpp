@@ -189,6 +189,7 @@ void Engine::run()
             ImGui::SliderFloat("Exposure", &exposureValue, 0.01f, 5.0f);
             ImGui::Checkbox("Tone Mapping", &toneMappingEnabled);
         }
+        ImGui::Text("Average %.2f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
 
         ImGui::Render();
