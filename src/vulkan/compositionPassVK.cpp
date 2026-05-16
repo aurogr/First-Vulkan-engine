@@ -161,8 +161,11 @@ VkCommandBuffer CompositionPassVK::draw( const Frame& i_frame)
     vkCmdBeginRenderPass( current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE );
 
     vkCmdBindPipeline( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_composition_pipeline );
-    uint32_t pcfValue = m_runtime.getShadowPCFEnabled() ? 1 : 0;
-    vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uint32_t), &pcfValue);
+    std::array<uint32_t, 2> push_contants = {
+        m_runtime.getShadowPCFHardwareEnabled() ? 1 : 0,
+        m_runtime.getShadowPCFSoftwareSize()
+    };
+    vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push_contants), push_contants.data());
     vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[ renderer.getWindow().getCurrentImageId() ].m_textures_descriptor, 0, NULL);
 				
     m_plane->draw( current_cmd, 0 );
@@ -325,7 +328,7 @@ void CompositionPassVK::createPipelines()
     VkPushConstantRange push_constant_range{};
     push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     push_constant_range.offset = 0;
-    push_constant_range.size = sizeof(uint32_t);
+    push_constant_range.size = 2 * sizeof(uint32_t);
 
     VkPipelineLayoutCreateInfo pipeline_layout_info{};
     pipeline_layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

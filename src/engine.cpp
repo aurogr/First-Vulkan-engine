@@ -153,7 +153,8 @@ void Engine::run()
 	bool shadowBiasEnabled = true;
     float shadowBiasConst = 1.0f;
     float shadowBiasSlope = 1.5f;
-    bool shadowPCFEnabled = true;
+    bool shadowPCFHardwareEnabled = true;
+    int shadowPCFSoftwareSize = 1;
 
     bool loop = true;
     while( loop && m_scene ) 
@@ -175,7 +176,11 @@ void Engine::run()
             ImGui::Checkbox("Shadow bias", &shadowBiasEnabled);
             ImGui::SliderFloat("Shadow bias constant factor", &shadowBiasConst, 0, 10);
             ImGui::SliderFloat("Shadow bias slope factor", &shadowBiasSlope, 0, 10);
-            ImGui::Checkbox("Shadow PCF", &shadowPCFEnabled);
+            ImGui::Checkbox("Shadow PCF hardware bilineal filter", &shadowPCFHardwareEnabled);
+            ImGui::SliderInt("Shadow PCF software filter size", &shadowPCFSoftwareSize, 1, 9);
+            if (shadowPCFSoftwareSize % 2 == 0) {
+                shadowPCFSoftwareSize += 1;
+            }
         }
         if (ImGui::CollapsingHeader("Color settings"))
         {
@@ -198,7 +203,8 @@ void Engine::run()
 		m_runtime.shadow_bias_enabled = shadowBiasEnabled;
 		m_runtime.shadows_bias_const = shadowBiasConst;
 		m_runtime.shadows_bias_slope = shadowBiasSlope;
-        m_runtime.shadow_pcf_enabled = shadowPCFEnabled;
+        m_runtime.shadow_pcf_harware_enabled = shadowPCFHardwareEnabled;
+        m_runtime.shadow_pcf_software_size = shadowPCFSoftwareSize;
 
         void* data;
         vkMapMemory(m_runtime.m_renderer->getDevice()->getLogicalDevice(), m_runtime.m_post_process_buffer_memory[m_current_frame % 3], 0, sizeof(PostProcessData), 0, &data);

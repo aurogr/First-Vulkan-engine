@@ -47,9 +47,14 @@ namespace MiniEngine
             return shadow_bias_enabled;
 		}
 
-        inline bool getShadowPCFEnabled() const
+        inline bool getShadowPCFHardwareEnabled() const
         {
-            return shadow_pcf_enabled;
+            return shadow_pcf_harware_enabled;
+		}
+
+        inline uint32_t getShadowPCFSoftwareSize() const
+        {
+            return shadow_pcf_software_size;
 		}
 
         inline uint32_t getBloomPingPongPasses() const
@@ -97,7 +102,8 @@ namespace MiniEngine
         bool shadow_bias_enabled = false;
         float shadows_bias_const = 4.0f;
         float shadows_bias_slope = 5.0f;
-        bool shadow_pcf_enabled = false;
+        bool shadow_pcf_harware_enabled = false;
+        uint32_t shadow_pcf_software_size = 1;
         uint32_t shadows_size = 2048;
         uint32_t shadows_layers_number = 10;
         uint32_t shadows_mipmap_number = 1;

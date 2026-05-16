@@ -6,7 +6,8 @@
 #define EPSILON   0.001
 
 layout (push_constant) uniform Block {
-    uint pcf;
+    uint hardware_pcf;
+    uint software_pcf;
 } push;
 
 layout( location = 0 ) in vec2 f_uvs;
@@ -102,20 +103,47 @@ float shadowCalc(vec4 frag_pos_light_proj, uint layerIdx)
     
      // transform to [0,1] range (z in vulkan is already correct so we dont need to remap it)
     vec2 shadowUV = projCoords.xy * 0.5 + 0.5;
-    vec3 layerCoords = vec3(shadowUV, float(layerIdx));
 
     float currentDepth = projCoords.z; 
 
-    if (push.pcf == 1) {
-        // Use the hardware PCF pipeline pathway
-        vec4 textureCoords = vec4(layerCoords, currentDepth);
-        return texture(i_shadow_PCF, textureCoords); 
-    } else {
-        // get closest depth value from light's perspective
-        float closestDepth = texture(i_shadow, layerCoords).r;
+    if (push.software_pcf <= 1){
+    vec3 layerCoords = vec3(shadowUV, float(layerIdx));
+        if (push.hardware_pcf == 1) {
+            // Use the hardware PCF pipeline pathway
+            vec4 textureCoords = vec4(layerCoords, currentDepth);
+            return texture(i_shadow_PCF, textureCoords); 
+        } else {
+            // get closest depth value from light's perspective
+            float closestDepth = texture(i_shadow, layerCoords).r;
 
-        // check whether current frag pos is in shadow
-        return (currentDepth) > closestDepth  ? 1.0 : 0.0;
+            // check whether current frag pos is in shadow
+            return (currentDepth) > closestDepth  ? 1.0 : 0.0;
+        }
+    } else {
+        float shadow = 0.0;
+        float samplesN = push.software_pcf * push.software_pcf;
+
+        int range = int(push.software_pcf) / 2;
+
+        vec2 texelSize = 1.0 / textureSize(i_shadow, 0).xy;
+
+        for(int x = -range; x <= range; ++x)
+        {
+            for(int y = -range; y <= range; ++y)
+            {
+                
+                vec3 layerCoords = vec3(shadowUV + vec2(x, y) * texelSize, float(layerIdx));
+                if (push.hardware_pcf == 1){
+                    vec4 textureCoords = vec4(layerCoords, currentDepth);
+                    shadow += texture(i_shadow_PCF, textureCoords); 
+                } else{
+                    float closestDepth = texture(i_shadow, layerCoords).r;
+                    shadow += (currentDepth) > closestDepth  ? 1.0 : 0.0;
+                }     
+            }    
+        }
+        shadow /= samplesN;
+        return shadow;
     }
 }
 
