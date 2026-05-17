@@ -36,6 +36,9 @@ namespace MiniEngine
         VkBuffer                                       m_data_buffer;
         VkDeviceMemory                                 m_indices_memory;
         VkDeviceMemory                                 m_data_memory;
+        VkAccelerationStructureKHR                     m_blas;
+        VkBuffer                                       m_blas_buffer;
+        VkDeviceMemory                                 m_blas_memory;
     
     };
 };

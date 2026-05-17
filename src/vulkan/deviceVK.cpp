@@ -104,6 +104,18 @@ void DeviceVK::createPhysicalDevice()
     // Defaults to the first device unless specified by command line
     uint32_t selected_device = 0;
 
+    for (uint32_t i = 0; i < gpu_count; i++)
+    {
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(physical_devices[i], &props);
+
+        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        {
+            selected_device = i;
+            break;
+        }
+    }
+
     m_physical_device = physical_devices[ selected_device ];
 
     m_phyisical_device_properties2.sType       = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
