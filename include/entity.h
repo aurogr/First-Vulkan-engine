@@ -28,9 +28,14 @@ namespace MiniEngine
         void draw( CommandBuffer& i_command_buffer,  const Frame& i_frame );
 
         inline Transform& getTransform()
-       {
-           return m_transform;
-       }
+        {
+            return m_transform;
+        }
+
+        inline const MeshVK&  getMesh() const 
+        {
+            return *m_mesh;
+        }
 
        inline Material& getMaterial() const
        {

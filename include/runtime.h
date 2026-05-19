@@ -32,6 +32,11 @@ namespace MiniEngine
             return m_post_process_buffer;
         }
 
+        inline const VkAccelerationStructureKHR& getAccelerationStructure(uint32 idx) const
+        {
+            return m_tlas[idx];
+        }
+
         inline float getShadowBiasConst() const
         {
             return shadow_bias_enabled;
@@ -61,6 +66,11 @@ namespace MiniEngine
         {
             return bloom_pingpong_passes;
 		}
+
+        inline bool getRTXShadowsEnabled() const
+        {
+            return rtx_shadows_enabled;
+        }
 
         inline uint32_t getShadowsSize() const
         {
@@ -98,12 +108,25 @@ namespace MiniEngine
 		std::array<VkBuffer, kMAX_NUMBER_OF_FRAMES> m_post_process_buffer = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE };
 		std::array<VkDeviceMemory, kMAX_NUMBER_OF_FRAMES> m_post_process_buffer_memory;
 
+        // tlas (one for every frame in flight)
+        std::array < VkAccelerationStructureKHR, kMAX_NUMBER_OF_FRAMES> m_tlas = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE };
+        std::array<VkBuffer, kMAX_NUMBER_OF_FRAMES> m_tlas_buffer = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE };
+        std::array<VkDeviceMemory, kMAX_NUMBER_OF_FRAMES> m_tlas_memory = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE };
+
+        // defined on imgui (post-proccess)
         uint32_t bloom_pingpong_passes = 3;
+
+        // defined on imgui (shadows)
         bool shadow_bias_enabled = false;
         float shadows_bias_const = 4.0f;
         float shadows_bias_slope = 5.0f;
         bool shadow_pcf_harware_enabled = false;
         uint32_t shadow_pcf_software_size = 1;
+
+        bool rtx_shadows_enabled = true; // if enabled, it renders shadows with rtx, else, it will render them with shadow mapping
+
+
+        // defined on script (shadows)
         uint32_t shadows_size = 2048;
         uint32_t shadows_layers_number = 10;
         uint32_t shadows_mipmap_number = 1;

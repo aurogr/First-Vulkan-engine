@@ -14,10 +14,13 @@
 
 // vulkan includes
 #include "vulkan/rendererVK.h"
+#include "vulkan/meshVK.h"
 #include "vulkan/renderPassVK.h"
 #include "vulkan/deferredPassVK.h"
 #include "vulkan/depthPrePassVK.h"
 #include "vulkan/shadowPassVK.h"
+#include "vulkan/rtxPassVK.h"
+#include "vulkan/rtxDenoiserPassVK.h"
 #include "vulkan/ssaoPassVK.h"
 #include "vulkan/ssaoBlurPassVK.h"
 #include "vulkan/compositionPassVK.h"
@@ -31,6 +34,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+
 
 using namespace MiniEngine;
 
@@ -150,6 +154,7 @@ void Engine::run()
 	float chromaticAberrationStrength = 0.0f;
 	bool toneMappingEnabled = true;
     // shadow settings
+	bool rtxEnabled = true;
 	bool shadowBiasEnabled = true;
     float shadowBiasConst = 1.0f;
     float shadowBiasSlope = 1.5f;
@@ -171,15 +176,28 @@ void Engine::run()
         ImGui::Begin("Settings");
 
         ImGui::PushItemWidth(150.0f);
+
+        ImGui::Separator();
+
         if (ImGui::CollapsingHeader("Shadow Settings"))
         {
-            ImGui::Checkbox("Shadow bias", &shadowBiasEnabled);
-            ImGui::SliderFloat("Shadow bias constant factor", &shadowBiasConst, 0, 10);
-            ImGui::SliderFloat("Shadow bias slope factor", &shadowBiasSlope, 0, 10);
-            ImGui::Checkbox("Shadow PCF hardware bilineal filter", &shadowPCFHardwareEnabled);
-            ImGui::SliderInt("Shadow PCF software filter size", &shadowPCFSoftwareSize, 1, 9);
-            if (shadowPCFSoftwareSize % 2 == 0) {
-                shadowPCFSoftwareSize += 1;
+            ImGui::Checkbox("RTX enabled", &m_runtime.rtx_shadows_enabled);
+            ImGui::Separator();
+            // 2. Only show traditional raster options if RTX is disabled
+            if (!m_runtime.rtx_shadows_enabled)
+            {
+                ImGui::Checkbox("Shadow bias", &shadowBiasEnabled);
+                ImGui::SliderFloat("Shadow bias constant factor", &shadowBiasConst, 0, 10);
+                ImGui::SliderFloat("Shadow bias slope factor", &shadowBiasSlope, 0, 10);
+                ImGui::Checkbox("Shadow PCF hardware bilineal filter", &shadowPCFHardwareEnabled);
+                ImGui::SliderInt("Shadow PCF software filter size", &shadowPCFSoftwareSize, 1, 9);
+                if (shadowPCFSoftwareSize % 2 == 0) {
+                    shadowPCFSoftwareSize += 1;
+                }
+            }
+            else
+            {
+                ImGui::TextDisabled("Using Ray Queries.");
             }
         }
         if (ImGui::CollapsingHeader("Color settings"))
@@ -214,7 +232,7 @@ void Engine::run()
         // -----------------------------------
         
         //update global uniforms buffers 
-        updateGlobalBuffers(); 
+        updateGlobalBuffers();
 
         //prepare pipeline stages
         VkSubmitInfo submit_info{};
@@ -302,6 +320,10 @@ void Engine::shutdown()
         m_imgui_descriptor_pool = VK_NULL_HANDLE;
     }
 
+    // destroy tlas
+    for (uint32 i = 0; i < 3; i++)
+        destroyTLAS(i);
+
     renderer.shutdown();
 }
 
@@ -309,6 +331,10 @@ void Engine::shutdown()
 void Engine::loadScene( const std::string& i_path )
 {
     m_scene = Scene::loadScene( m_runtime, i_path );
+
+    // we only need to create it once because the scene is static, if it wasn't, we'd need to update them
+    for (int i = 0; i < 3; i++)
+        buildTLAS(i);
 
     assert( m_scene );
 
@@ -408,7 +434,7 @@ void Engine::createRenderPasses ()
         m_runtime,
         m_render_target_attachments.m_position_depth_attachment,
         m_render_target_attachments.m_normal_attachment,
-        m_render_target_attachments.m_normal_attachment,
+        m_render_target_attachments.m_material_attachment,
         m_render_target_attachments.m_ssao_attachment);
     ssao_pass->initialize();
 
@@ -431,6 +457,27 @@ void Engine::createRenderPasses ()
 
     m_render_passes.push_back(shadow_pass);
 
+    auto rtx_pass = std::make_shared<RtxPassVK>(
+        m_runtime, 
+        m_render_target_attachments.m_position_depth_attachment,
+        m_render_target_attachments.m_normal_attachment,
+        m_render_target_attachments.m_rtx_attachment
+    );
+    rtx_pass->initialize();
+
+    m_render_passes.push_back(rtx_pass);
+
+    auto rtx_pass = std::make_shared<RtxDenoiserPassVK>(
+        m_runtime, 
+        m_render_target_attachments.m_position_depth_attachment,
+        m_render_target_attachments.m_normal_attachment,
+        m_render_target_attachments.m_rtx_attachment,
+        m_render_target_attachments.m_rtx_denoiser_attachment,
+    );
+    rtx_pass->initialize();
+
+    m_render_passes.push_back(rtx_pass);
+
 
     auto composition_pass = std::make_shared<CompositionPassVK>(
         m_runtime,
@@ -440,6 +487,7 @@ void Engine::createRenderPasses ()
         m_render_target_attachments.m_material_attachment,
         m_render_target_attachments.m_ssao_blur_attachment,
         m_render_target_attachments.m_shadow_attachment,
+        m_render_target_attachments.m_rtx_denoiser_attachment,
         m_render_target_attachments.m_bloom_brightness_attachment,
         m_render_target_attachments.m_hdr_attachment);
     composition_pass->initialize();
@@ -582,7 +630,9 @@ void Engine::createAttachments()
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_h_ping_pong_attachment );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_bloom_v_ping_pong_attachment );
     UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_hdr_attachment               );
-    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_D32_SFLOAT         , VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT , m_runtime.shadows_size, m_runtime.shadows_size, m_runtime.shadows_layers_number, m_runtime.shadows_mipmap_number, IMAGE_BLOCK_2D_ARRAY,  m_render_target_attachments.m_shadow_attachment);
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_D32_SFLOAT         , VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, m_runtime.shadows_size, m_runtime.shadows_size, m_runtime.shadows_layers_number, m_runtime.shadows_mipmap_number, IMAGE_BLOCK_2D_ARRAY,  m_render_target_attachments.m_shadow_attachment);
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8_UNORM           , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_rtx_attachment);
+    UtilsVK::createImage( *m_runtime.m_renderer->getDevice(), VK_FORMAT_R8_UNORM           , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT        , width, height, m_render_target_attachments.m_rtx_denoiser_attachment);
 
     m_render_target_attachments.m_color_attachment.m_sampler            = m_global_samplers[ 0 ];         
     m_render_target_attachments.m_normal_attachment.m_sampler           = m_global_samplers[ 0 ];        
@@ -596,6 +646,8 @@ void Engine::createAttachments()
     m_render_target_attachments.m_bloom_v_ping_pong_attachment.m_sampler= m_global_samplers[ 0 ];
     m_render_target_attachments.m_hdr_attachment.m_sampler              = m_global_samplers[ 0 ]; 
     m_render_target_attachments.m_shadow_attachment.m_sampler           = m_global_samplers[ 0 ];
+    m_render_target_attachments.m_rtx_attachment.m_sampler              = m_global_samplers[ 0 ];
+    m_render_target_attachments.m_rtx_denoiser_attachment.m_sampler     = m_global_samplers[ 0 ];
 
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_color_attachment.m_image               ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Color Attachment"          );
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_normal_attachment.m_image              ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Normal Attachment "        );
@@ -609,6 +661,8 @@ void Engine::createAttachments()
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_bloom_v_ping_pong_attachment.m_image   ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Bloom Vertical Ping-Pong"  );
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_hdr_attachment.m_image                 ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image HDR "                      );
     UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_shadow_attachment.m_image              ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image Shadow attachament "       );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_rtx_attachment.m_image                 ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image RTX attachament "          );
+    UtilsVK::setObjectName( m_runtime.m_renderer->getDevice()->getLogicalDevice(), (uint64_t)( m_render_target_attachments.m_rtx_denoiser_attachment.m_image        ), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, "Image RTX denoiser attachament " );
 }
 
 
@@ -625,8 +679,9 @@ void Engine::destroyAttachments()
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_bloom_h_ping_pong_attachment );
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_bloom_v_ping_pong_attachment );
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_hdr_attachment               );
-    UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_hdr_attachment               );
     UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_shadow_attachment            );
+    UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_rtx_attachment               );
+    UtilsVK::freeImageBlock( *m_runtime.m_renderer->getDevice(), m_render_target_attachments.m_rtx_denoiser_attachment      );
 }
 
 
@@ -687,6 +742,54 @@ void Engine::destroySamplers()
     for( VkSampler sampler : m_global_samplers )
     {
         vkDestroySampler( m_runtime.m_renderer->getDevice()->getLogicalDevice(), sampler, nullptr );
+    }
+}
+
+void Engine::buildTLAS(uint32_t frameIdx) {
+    std::vector<VkAccelerationStructureKHR> blasStructures;
+    std::vector<Matrix4f> transforms;
+
+    for (const auto& entity : m_scene->getMeshes()) {
+        const MeshVK& mesh = entity->getMesh();
+        VkAccelerationStructureKHR blas = mesh.getBLAS();
+        if (blas != VK_NULL_HANDLE) {
+            blasStructures.push_back(blas);
+            transforms.push_back(entity->getTransform().getTransform());
+        }
+    }
+
+    UtilsVK::createTLAS(
+        *m_runtime.m_renderer->getDevice(),
+        transforms,
+        blasStructures,
+        m_runtime.m_tlas[frameIdx],
+        m_runtime.m_tlas_buffer[frameIdx],
+        m_runtime.m_tlas_memory[frameIdx]
+    );
+}
+
+void Engine::destroyTLAS(uint32_t frameIdx) {
+    VkDevice device = m_runtime.m_renderer->getDevice()->getLogicalDevice();
+
+    if (m_runtime.m_tlas[frameIdx] != VK_NULL_HANDLE) {
+        auto pfnDestroyAS = (PFN_vkDestroyAccelerationStructureKHR)vkGetDeviceProcAddr(
+            device, "vkDestroyAccelerationStructureKHR"
+        );
+
+        if (pfnDestroyAS) {
+            pfnDestroyAS(device, m_runtime.m_tlas[frameIdx], nullptr);
+        }
+        m_runtime.m_tlas[frameIdx] = VK_NULL_HANDLE;
+    }
+
+    if (m_runtime.m_tlas_buffer[frameIdx] != VK_NULL_HANDLE) {
+        vkDestroyBuffer(device, m_runtime.m_tlas_buffer[frameIdx], nullptr);
+        m_runtime.m_tlas_buffer[frameIdx] = VK_NULL_HANDLE;
+    }
+
+    if (m_runtime.m_tlas_memory[frameIdx] != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_runtime.m_tlas_memory[frameIdx], nullptr);
+        m_runtime.m_tlas_memory[frameIdx] = VK_NULL_HANDLE;
     }
 }
 

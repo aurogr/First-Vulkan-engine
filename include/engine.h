@@ -37,6 +37,8 @@ namespace MiniEngine
         void destroySamplers    ();
         void updateGlobalBuffers();
         void initImgui();
+        void buildTLAS(uint32_t frameIdx);
+        void destroyTLAS(uint32_t frameIdx);
 
         std::vector<std::shared_ptr<RenderPassVK>> m_render_passes;
 

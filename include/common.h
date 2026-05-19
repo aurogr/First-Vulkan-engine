@@ -112,7 +112,9 @@ namespace MiniEngine
 
         // SHADOWS
         ImageBlock m_shadow_attachment;
-        ImageBlock m_shadow_attachment_PCF;
+
+        ImageBlock m_rtx_attachment;
+        ImageBlock m_rtx_denoiser_attachment;
     };
 
 };

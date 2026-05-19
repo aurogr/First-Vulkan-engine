@@ -64,6 +64,8 @@ include/vulkan/ssaoBlurPassVK.h
 include/vulkan/bloomPassVK.h
 include/vulkan/postProcessPassVK.h
 include/vulkan/shadowPassVK.h
+include/vulkan/rtxPassVK.h
+include/vulkan/rtxDenoiserPassVK.h
 
 #CPPS
 main.cpp
@@ -98,6 +100,8 @@ src/vulkan/ssaoBlurPassVK.cpp
 src/vulkan/bloomPassVK.cpp
 src/vulkan/postProcessPassVK.cpp
 src/vulkan/shadowPassVK.cpp
+src/vulkan/rtxPassVK.cpp
+src/vulkan/rtxDenoiserPassVK.cpp
 )
 
 
