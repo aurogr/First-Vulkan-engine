@@ -96,9 +96,24 @@ namespace MiniEngine
             return (uint32_t)rtx_ray_number;
         }
 
+        inline uint32_t getRTXKernelSize() const
+        {
+            return (uint32_t)rtx_kernel_size;
+        }
+
         inline float getRTXConeRadius() const
         {
             return rtx_cone_radius;
+        }
+
+        inline float getRTXSigmaDepth() const
+        {
+            return rtx_sigma_depth;
+        }
+
+        inline float getRTXEdgeSharpness() const
+        {
+            return rtx_edge_sharpness;
         }
 
     private:
@@ -139,6 +154,10 @@ namespace MiniEngine
         bool rtx_soft_shadows = true;
         int rtx_ray_number = 4;
         float rtx_cone_radius = 0.1f;
+
+        int rtx_kernel_size = 5;
+        float rtx_sigma_depth = 0.05f;
+        float rtx_edge_sharpness = 16.0f;
 
         // defined on script (shadows)
         uint32_t shadows_size = 2048;

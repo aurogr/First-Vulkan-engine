@@ -52,5 +52,7 @@ namespace MiniEngine
         ImageBlock m_in_position_depth_attachment;
         ImageBlock m_in_normal_attachment;
         ImageBlock m_out_rtx_denoiser_attachment;
+
+        bool m_need_layout_cleanup = true;
     };
 };

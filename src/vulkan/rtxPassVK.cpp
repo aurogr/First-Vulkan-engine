@@ -14,7 +14,7 @@
 using namespace MiniEngine;
 
 struct RTXPushConstants {
-    uint32_t shadow_mode;
+    uint32_t soft_shadow;
     uint32_t ray_number;
     float cone_radius;
 };
@@ -128,6 +128,46 @@ VkCommandBuffer RtxPassVK::draw( const Frame& i_frame)
     VkCommandBufferBeginInfo begin_info{};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
+    if (m_runtime.getShadowMode() != 2) // skip this render pass if shadow mode does not correspond
+    {
+        if (vkBeginCommandBuffer(current_cmd, &begin_info) != VK_SUCCESS)
+        {
+            throw MiniEngineException("failed to begin recording command buffer!");
+        }
+
+        if (m_need_layout_cleanup) // first time the pass is skipped it needs a barrier to change image view so that the attachment in composition gets it correctly
+        {
+            VkImageMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            barrier.pNext = nullptr;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = m_rtx_attachment.m_image;
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+            barrier.subresourceRange.baseArrayLayer = 0;
+            barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            vkCmdPipelineBarrier(
+                current_cmd,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                0, 0, nullptr, 0, nullptr, 1, &barrier
+            );
+
+            m_need_layout_cleanup = false;
+        }
+
+        vkEndCommandBuffer(current_cmd);
+        return current_cmd;
+    }
+
+    m_need_layout_cleanup = true;
+
     uint32_t width = 0, height = 0;
     renderer.getWindow().getWindowSize( width, height );
 
@@ -155,7 +195,7 @@ VkCommandBuffer RtxPassVK::draw( const Frame& i_frame)
     vkCmdBindPipeline( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline );
 
     RTXPushConstants push{};
-    push.shadow_mode = m_runtime.getRTXSoftShadows() ? 1 : 0;
+    push.soft_shadow = m_runtime.getRTXSoftShadows() ? 1 : 0;
     push.ray_number = m_runtime.getRTXRayNumber();
     push.cone_radius = m_runtime.getRTXConeRadius();
 
@@ -304,7 +344,7 @@ void RtxPassVK::createPipelines()
     VkPushConstantRange push_constant_range{};
     push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     push_constant_range.offset = 0;
-    push_constant_range.size = 2 * sizeof(RTXPushConstants);
+    push_constant_range.size = sizeof(RTXPushConstants);
 
     VkPipelineLayoutCreateInfo pipeline_layout_info{};
     pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

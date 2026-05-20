@@ -56,6 +56,8 @@ namespace MiniEngine
 
         std::vector<EntityPtr> m_entities_to_draw;
 
+        bool m_need_layout_cleanup = true;
+
         const ImageBlock m_shadows;
     };
 };

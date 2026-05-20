@@ -115,6 +115,46 @@ VkCommandBuffer ShadowPassVK::draw(const Frame& i_frame)
     VkCommandBufferBeginInfo begin_info{};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
+    if (m_runtime.getShadowMode() != 1) // skip this render pass if shadow mode does not correspond
+    {
+        if (vkBeginCommandBuffer(current_cmd, &begin_info) != VK_SUCCESS)
+        {
+            throw MiniEngineException("failed to begin recording command buffer!");
+        }
+
+        if (m_need_layout_cleanup) // first time the pass is skipped it needs a barrier to change image view so that the attachment in composition gets it correctly
+        {
+            VkImageMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            barrier.pNext = nullptr;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = m_shadows.m_image;
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+            barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+            barrier.subresourceRange.baseArrayLayer = 0;
+            barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            vkCmdPipelineBarrier(
+                current_cmd,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                0, 0, nullptr, 0, nullptr, 1, &barrier
+            );
+
+            m_need_layout_cleanup = false;
+        }
+
+        vkEndCommandBuffer(current_cmd);
+        return current_cmd;
+    }
+
+    m_need_layout_cleanup = true;
+
     VkRenderPassBeginInfo render_pass_info{};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_info.renderPass = m_render_pass;
