@@ -22,6 +22,7 @@ CompositionPassVK::CompositionPassVK(
     const ImageBlock& i_in_material_attachment,
     const ImageBlock& i_in_ssao_blur_attachment,
     const ImageBlock& i_in_shadow_attachment,
+    const ImageBlock& i_in_rtx_denoiser_attachment,
     const ImageBlock& i_output_bloom_attachment,
     const ImageBlock& i_output_hdr_attachment
     //const std::array<ImageBlock, 3>& i_output_swap_images 
@@ -33,6 +34,7 @@ CompositionPassVK::CompositionPassVK(
     m_in_material_attachment      ( i_in_material_attachment  ),
     m_in_ssao_blur_attachment     ( i_in_ssao_blur_attachment),
     m_in_shadow_attachment        ( i_in_shadow_attachment),
+    m_in_rtx_denoiser_attachment  (i_in_rtx_denoiser_attachment),
     m_output_bloom_attachment     ( i_output_bloom_attachment),
     m_output_hdr_attachment       (i_output_hdr_attachment)
     //m_output_swap_images( i_output_swap_images ) 
@@ -61,8 +63,8 @@ bool CompositionPassVK::initialize()
     //SHADER STAGES
     {
         { // difuse
-            VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader( "./shaders/composition_v.spv", VK_SHADER_STAGE_VERTEX_BIT   );
-            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader( "./shaders/composition_f.spv", VK_SHADER_STAGE_FRAGMENT_BIT );
+            VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader( "./shaders/quad.spv", VK_SHADER_STAGE_VERTEX_BIT   );
+            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader( "./shaders/composition.spv", VK_SHADER_STAGE_FRAGMENT_BIT );
 
             assert( VK_NULL_HANDLE != vert_module && VK_NULL_HANDLE != frag_module );
 
@@ -161,9 +163,10 @@ VkCommandBuffer CompositionPassVK::draw( const Frame& i_frame)
     vkCmdBeginRenderPass( current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE );
 
     vkCmdBindPipeline( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_composition_pipeline );
-    std::array<uint32_t, 2> push_contants = {
+    std::array<uint32_t, 3> push_contants = {
         m_runtime.getShadowPCFHardwareEnabled() ? 1 : 0,
-        m_runtime.getShadowPCFSoftwareSize()
+        m_runtime.getShadowPCFSoftwareSize(),
+        m_runtime.getShadowMode()
     };
     vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push_contants), push_contants.data());
     vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[ renderer.getWindow().getCurrentImageId() ].m_textures_descriptor, 0, NULL);
@@ -328,7 +331,7 @@ void CompositionPassVK::createPipelines()
     VkPushConstantRange push_constant_range{};
     push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     push_constant_range.offset = 0;
-    push_constant_range.size = 2 * sizeof(uint32_t);
+    push_constant_range.size = 3 * sizeof(uint32_t);
 
     VkPipelineLayoutCreateInfo pipeline_layout_info{};
     pipeline_layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -455,7 +458,7 @@ void CompositionPassVK::createPipelines()
 
 void CompositionPassVK::createDescriptorLayout()
 {
-    std::array<VkDescriptorSetLayoutBinding, 8> layout_bindings;
+    std::array<VkDescriptorSetLayoutBinding, 9> layout_bindings;
 
     ////// PER FRAME
     layout_bindings[ 0 ] = {};
@@ -505,6 +508,12 @@ void CompositionPassVK::createDescriptorLayout()
     layout_bindings[ 7 ].descriptorCount              = 1;
     layout_bindings[ 7 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     layout_bindings[ 7 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    layout_bindings[ 8 ] = {};
+    layout_bindings[ 8 ].binding                      = 8;
+    layout_bindings[ 8 ].descriptorCount              = 1;
+    layout_bindings[ 8 ].descriptorType               = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    layout_bindings[ 8 ].stageFlags                   = VK_SHADER_STAGE_FRAGMENT_BIT;
 
 
     VkDescriptorSetLayoutCreateInfo set_attachment_color_info = {};
@@ -561,7 +570,7 @@ void CompositionPassVK::createDescriptors()
         binfo.offset    = 0;
         binfo.range     = sizeof( PerFrameData );
 
-        std::array<VkDescriptorImageInfo, 7> image_infos;
+        std::array<VkDescriptorImageInfo, 8> image_infos;
         image_infos[ 0 ].sampler     = m_in_color_attachment.m_sampler;
         image_infos[ 0 ].imageView   = m_in_color_attachment.m_image_view;
         image_infos[ 0 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -590,8 +599,12 @@ void CompositionPassVK::createDescriptors()
         image_infos[ 6 ].imageView   = m_in_shadow_attachment.m_image_view;
         image_infos[ 6 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+        image_infos[ 7 ].sampler     = m_in_rtx_denoiser_attachment.m_sampler;
+        image_infos[ 7 ].imageView   = m_in_rtx_denoiser_attachment.m_image_view;
+        image_infos[ 7 ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        std::array<VkWriteDescriptorSet, 8> set_write;
+
+        std::array<VkWriteDescriptorSet, 9> set_write;
 
         set_write[ 0 ]                   = {};
         set_write[ 0 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -665,6 +678,15 @@ void CompositionPassVK::createDescriptors()
         set_write[ 7 ].descriptorCount   = 1;
         set_write[ 7 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; 
         set_write[ 7 ].pImageInfo        = &image_infos[ 6 ];
+
+        set_write[ 8 ]                   = {};
+        set_write[ 8 ].sType             = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        set_write[ 8 ].pNext             = nullptr;
+        set_write[ 8 ].dstBinding        = 8;
+        set_write[ 8 ].dstSet            = m_descriptor_sets[ i ].m_textures_descriptor;
+        set_write[ 8 ].descriptorCount   = 1;
+        set_write[ 8 ].descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        set_write[ 8 ].pImageInfo        = &image_infos[ 7 ];
 
         vkUpdateDescriptorSets( m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr );
     }

@@ -16,7 +16,6 @@ namespace MiniEngine
         std::unique_ptr<MeshRegistry>   m_mesh_registry;
         VkSampler m_pcf_sampler = VK_NULL_HANDLE;
         
-
         inline const std::array<VkBuffer, kMAX_NUMBER_OF_FRAMES> getPerFrameBuffer() const
         {
             return m_per_frame_buffer;
@@ -59,17 +58,17 @@ namespace MiniEngine
 
         inline uint32_t getShadowPCFSoftwareSize() const
         {
-            return shadow_pcf_software_size;
+            return (uint32_t)shadow_pcf_software_size;
 		}
 
         inline uint32_t getBloomPingPongPasses() const
         {
-            return bloom_pingpong_passes;
+            return (uint32_t)bloom_pingpong_passes;
 		}
 
-        inline bool getRTXShadowsEnabled() const
+        inline uint32_t getShadowMode() const
         {
-            return rtx_shadows_enabled;
+            return shadow_mode;
         }
 
         inline uint32_t getShadowsSize() const
@@ -82,12 +81,25 @@ namespace MiniEngine
             return shadows_layers_number;
 		}
         
-
         inline uint32_t getShadowsMipMapNumber() const
         {
             return shadows_mipmap_number;
 		}
 
+        inline bool getRTXSoftShadows() const
+        {
+            return rtx_soft_shadows;
+        }
+
+        inline uint32_t getRTXRayNumber() const
+        {
+            return (uint32_t)rtx_ray_number;
+        }
+
+        inline float getRTXConeRadius() const
+        {
+            return rtx_cone_radius;
+        }
 
     private:
         explicit Runtime() = default;
@@ -114,17 +126,19 @@ namespace MiniEngine
         std::array<VkDeviceMemory, kMAX_NUMBER_OF_FRAMES> m_tlas_memory = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE };
 
         // defined on imgui (post-proccess)
-        uint32_t bloom_pingpong_passes = 3;
+        int bloom_pingpong_passes = 3;
 
         // defined on imgui (shadows)
-        bool shadow_bias_enabled = false;
+        bool shadow_bias_enabled = true;
         float shadows_bias_const = 4.0f;
         float shadows_bias_slope = 5.0f;
-        bool shadow_pcf_harware_enabled = false;
-        uint32_t shadow_pcf_software_size = 1;
+        bool shadow_pcf_harware_enabled = true;
+        int shadow_pcf_software_size = 1;
 
-        bool rtx_shadows_enabled = true; // if enabled, it renders shadows with rtx, else, it will render them with shadow mapping
-
+        uint32_t shadow_mode = 0; // 0 no shadows, 1 shadow mapping, 2 rtx shadows
+        bool rtx_soft_shadows = true;
+        int rtx_ray_number = 4;
+        float rtx_cone_radius = 0.1f;
 
         // defined on script (shadows)
         uint32_t shadows_size = 2048;

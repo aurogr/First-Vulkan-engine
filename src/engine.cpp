@@ -148,18 +148,10 @@ void Engine::run()
 
     initImgui();
 
-    // color settings
+    // ubo settings
 	float exposureValue = 1.0f;
-	int pingpongPasses = 3.0f;
 	float chromaticAberrationStrength = 0.0f;
 	bool toneMappingEnabled = true;
-    // shadow settings
-	bool rtxEnabled = true;
-	bool shadowBiasEnabled = true;
-    float shadowBiasConst = 1.0f;
-    float shadowBiasSlope = 1.5f;
-    bool shadowPCFHardwareEnabled = true;
-    int shadowPCFSoftwareSize = 1;
 
     bool loop = true;
     while( loop && m_scene ) 
@@ -181,28 +173,46 @@ void Engine::run()
 
         if (ImGui::CollapsingHeader("Shadow Settings"))
         {
-            ImGui::Checkbox("RTX enabled", &m_runtime.rtx_shadows_enabled);
+            const char* shadowMode[] = { "None", "Shadow mapping", "RTX" };
+
+            if (ImGui::BeginCombo("Shadow Mode", shadowMode[m_runtime.shadow_mode])) {
+                for (int i = 0; i < 3; i++) {
+                    bool is_selected = (m_runtime.shadow_mode == i);
+                    if (is_selected) ImGui::SetItemDefaultFocus();
+
+                    if (ImGui::Selectable(shadowMode[i], is_selected)) {
+                        m_runtime.shadow_mode = i; // Update the state when clicked
+                    }
+                }
+                ImGui::EndCombo();
+            }
             ImGui::Separator();
-            // 2. Only show traditional raster options if RTX is disabled
-            if (!m_runtime.rtx_shadows_enabled)
+
+            if (m_runtime.shadow_mode == 1)
             {
-                ImGui::Checkbox("Shadow bias", &shadowBiasEnabled);
-                ImGui::SliderFloat("Shadow bias constant factor", &shadowBiasConst, 0, 10);
-                ImGui::SliderFloat("Shadow bias slope factor", &shadowBiasSlope, 0, 10);
-                ImGui::Checkbox("Shadow PCF hardware bilineal filter", &shadowPCFHardwareEnabled);
-                ImGui::SliderInt("Shadow PCF software filter size", &shadowPCFSoftwareSize, 1, 9);
-                if (shadowPCFSoftwareSize % 2 == 0) {
-                    shadowPCFSoftwareSize += 1;
+                ImGui::Checkbox("Shadow bias", &m_runtime.shadow_bias_enabled);
+                ImGui::SliderFloat("Shadow bias constant factor", &m_runtime.shadows_bias_const, 0, 10);
+                ImGui::SliderFloat("Shadow bias slope factor", &m_runtime.shadows_bias_slope, 0, 10);
+                ImGui::Checkbox("Shadow PCF hardware bilineal filter", &m_runtime.shadow_pcf_harware_enabled);
+                ImGui::SliderInt("Shadow PCF software filter size", &m_runtime.shadow_pcf_software_size, 1, 9);
+                if (m_runtime.shadow_pcf_software_size % 2 == 0) {
+                    m_runtime.shadow_pcf_software_size += 1;
                 }
             }
-            else
+            else if (m_runtime.shadow_mode == 2)
             {
-                ImGui::TextDisabled("Using Ray Queries.");
+                ImGui::Checkbox("Soft shadows", &m_runtime.rtx_soft_shadows);
+
+                if (m_runtime.rtx_soft_shadows)
+                {
+                    ImGui::SliderFloat("Cone radius", &m_runtime.rtx_cone_radius, 0.0f, 0.5f);
+                    ImGui::SliderInt("Number of rays", &m_runtime.rtx_ray_number, 1, 32);
+                }
             }
         }
         if (ImGui::CollapsingHeader("Color settings"))
         {
-            ImGui::SliderInt("Bloom PingPong Passes", &pingpongPasses, 1, 10);
+            ImGui::SliderInt("Bloom PingPong Passes", &m_runtime.bloom_pingpong_passes, 1, 10);
             ImGui::SliderFloat("Chromatic aberration strength", &chromaticAberrationStrength, 0, 10);
             ImGui::SliderFloat("Exposure", &exposureValue, 0.01f, 5.0f);
             ImGui::Checkbox("Tone Mapping", &toneMappingEnabled);
@@ -217,13 +227,6 @@ void Engine::run()
         ubo.m_exposure = exposureValue;
         ubo.m_tone_mapping_enabled = toneMappingEnabled ? 1 : 0;
         ubo.m_chromatic_aberration_strength = chromaticAberrationStrength;
-
-		m_runtime.bloom_pingpong_passes = pingpongPasses;
-		m_runtime.shadow_bias_enabled = shadowBiasEnabled;
-		m_runtime.shadows_bias_const = shadowBiasConst;
-		m_runtime.shadows_bias_slope = shadowBiasSlope;
-        m_runtime.shadow_pcf_harware_enabled = shadowPCFHardwareEnabled;
-        m_runtime.shadow_pcf_software_size = shadowPCFSoftwareSize;
 
         void* data;
         vkMapMemory(m_runtime.m_renderer->getDevice()->getLogicalDevice(), m_runtime.m_post_process_buffer_memory[m_current_frame % 3], 0, sizeof(PostProcessData), 0, &data);
@@ -467,16 +470,16 @@ void Engine::createRenderPasses ()
 
     m_render_passes.push_back(rtx_pass);
 
-    auto rtx_pass = std::make_shared<RtxDenoiserPassVK>(
+    auto rtx_denoiser_pass = std::make_shared<RtxDenoiserPassVK>(
         m_runtime, 
         m_render_target_attachments.m_position_depth_attachment,
         m_render_target_attachments.m_normal_attachment,
         m_render_target_attachments.m_rtx_attachment,
-        m_render_target_attachments.m_rtx_denoiser_attachment,
+        m_render_target_attachments.m_rtx_denoiser_attachment
     );
-    rtx_pass->initialize();
+    rtx_denoiser_pass->initialize();
 
-    m_render_passes.push_back(rtx_pass);
+    m_render_passes.push_back(rtx_denoiser_pass);
 
 
     auto composition_pass = std::make_shared<CompositionPassVK>(

@@ -51,8 +51,8 @@ bool SSAOPassVK::initialize()
     //SHADER STAGES
     {
         { // difuse
-            VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader( "./shaders/ssao_v.spv", VK_SHADER_STAGE_VERTEX_BIT   );
-            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader( "./shaders/ssao_f.spv", VK_SHADER_STAGE_FRAGMENT_BIT );
+            VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader( "./shaders/quad.spv", VK_SHADER_STAGE_VERTEX_BIT   );
+            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader( "./shaders/ssao.spv", VK_SHADER_STAGE_FRAGMENT_BIT );
 
             assert( VK_NULL_HANDLE != vert_module && VK_NULL_HANDLE != frag_module );
 

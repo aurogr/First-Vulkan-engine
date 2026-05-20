@@ -8,6 +8,7 @@
 layout (push_constant) uniform Block {
     uint hardware_pcf;
     uint software_pcf;
+    uint shadow_mode; // 0 no shadows, 1 shadow mapping, 2 rtx
 } push;
 
 layout( location = 0 ) in vec2 f_uvs;
@@ -42,6 +43,7 @@ layout ( set = 0, binding = 4 ) uniform sampler2D i_material;
 layout ( set = 0, binding = 5 ) uniform sampler2D i_ssao_blur;
 layout ( set = 0, binding = 6 ) uniform sampler2DArray i_shadow;
 layout ( set = 0, binding = 7 ) uniform sampler2DArrayShadow i_shadow_PCF;
+layout ( set = 0, binding = 8 ) uniform sampler2D i_rtx_shadows;
 
 layout(location = 0) out vec4 out_color;
 layout(location = 1) out vec4 out_bloom;
@@ -163,7 +165,18 @@ vec3 evalMicrofacets(){
         LightData light = per_frame_data.m_lights[ id_light ];
         uint light_type = uint( floor( light.m_light_pos.a ) );
 
-        vec4 frag_pos_light_proj = per_frame_data.m_lights[ id_light ].m_view_projection * vec4(frag_pos, 1.0);
+
+        float visibility = 1.0;
+
+        if (push.shadow_mode == 1)
+        {
+            vec4 frag_pos_light_proj = per_frame_data.m_lights[ id_light ].m_view_projection * vec4(frag_pos, 1.0);
+            visibility = 1 - shadowCalc(frag_pos_light_proj, id_light);
+        } 
+        else if (push.shadow_mode == 2) 
+        {
+            visibility = texture(i_rtx_shadows, f_uvs).r;
+        }
 
         switch( light_type )
         {
@@ -173,7 +186,7 @@ vec3 evalMicrofacets(){
 
                 vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb);
                 
-                shading += max( dot( n, l ), 0.0 ) * light.m_radiance.rgb * (shade) * (1 - shadowCalc(frag_pos_light_proj, id_light));
+                shading += max( dot( n, l ), 0.0 ) * light.m_radiance.rgb * (shade) * visibility;
                 break;
             }
             case 1: //point
@@ -184,7 +197,7 @@ vec3 evalMicrofacets(){
                 vec3 radiance = light.m_radiance.rgb * att;
                 l = normalize(l);
                 
-                vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb) * (1 - shadowCalc(frag_pos_light_proj, id_light));
+                vec3 shade = shadeMicrofacets(v, l, n, metallic, roughness, albedo.rgb) * visibility;
 
                 shading += max( dot( n, l ), 0.0 ) * (shade) * radiance;
                 break;

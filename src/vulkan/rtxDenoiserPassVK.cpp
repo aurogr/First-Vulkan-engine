@@ -16,13 +16,15 @@ using namespace MiniEngine;
 
 RtxDenoiserPassVK::RtxDenoiserPassVK(
     const Runtime& i_runtime,
-    const ImageBlock& i_in_m_ssao_attachment,
     const ImageBlock& i_in_m_position_depth_attachment,
-    const ImageBlock& i_m_ssao_blur_attachment) :
+    const ImageBlock& i_in_m_normal_attachment,
+    const ImageBlock& i_in_m_rtx_attachment,
+    const ImageBlock& i_m_rtx_denoiser_attachment) :
     RenderPassVK(i_runtime),
-    m_in_ssao_attachment(i_in_m_ssao_attachment),
+    m_in_rtx_attachment(i_in_m_rtx_attachment),
     m_in_position_depth_attachment(i_in_m_position_depth_attachment),
-    m_ssao_blur_attachment(i_m_ssao_blur_attachment)
+    m_in_normal_attachment(i_in_m_normal_attachment),
+    m_out_rtx_denoiser_attachment(i_m_rtx_denoiser_attachment)
 {
     for (auto cmd : m_command_buffer)
     {
@@ -30,11 +32,7 @@ RtxDenoiserPassVK::RtxDenoiserPassVK(
     }
 }
 
-
-RtxDenoiserPassVK::~RtxDenoiserPassVK()
-{
-}
-
+RtxDenoiserPassVK::~RtxDenoiserPassVK(){}
 
 bool RtxDenoiserPassVK::initialize()
 {
@@ -48,8 +46,8 @@ bool RtxDenoiserPassVK::initialize()
     //SHADER STAGES
     {
         { // difuse
-            VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader("./shaders/ssao_v.spv", VK_SHADER_STAGE_VERTEX_BIT);
-            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader("./shaders/ssao_blur_f.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+            VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader("./shaders/quad.spv", VK_SHADER_STAGE_VERTEX_BIT);
+            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader("./shaders/rtx_denoiser.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
             assert(VK_NULL_HANDLE != vert_module && VK_NULL_HANDLE != frag_module);
 
@@ -106,7 +104,6 @@ void RtxDenoiserPassVK::shutdown()
     vkDestroyRenderPass(renderer.getDevice()->getLogicalDevice(), m_render_pass, nullptr);
 }
 
-
 VkCommandBuffer RtxDenoiserPassVK::draw(const Frame& i_frame)
 {
     RendererVK& renderer = *m_runtime.m_renderer;
@@ -147,7 +144,7 @@ VkCommandBuffer RtxDenoiserPassVK::draw(const Frame& i_frame)
     vkCmdBeginRenderPass(current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_ssao_pipeline);
-    vkCmdBindDescriptorSets(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[renderer.getWindow().getCurrentImageId()].m_textures_descriptor, 0, NULL);
+    vkCmdBindDescriptorSets(current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[renderer.getWindow().getCurrentImageId()], 0, NULL);
 
     m_plane->draw(current_cmd, 0);
 
@@ -172,7 +169,7 @@ void RtxDenoiserPassVK::createFbo()
         renderer.getWindow().getWindowSize(width, height);
 
         std::array<VkImageView, 1> attachments;
-        attachments[0] = m_ssao_blur_attachment.m_image_view;
+        attachments[0] = m_out_rtx_denoiser_attachment.m_image_view;
 
         VkFramebufferCreateInfo framebuffer_create_info = {};
         framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -197,7 +194,7 @@ void RtxDenoiserPassVK::createRenderPass()
     RendererVK& renderer = *m_runtime.m_renderer;
 
     std::array<VkAttachmentDescription, 1> attachments = {};
-    attachments[0].format = m_ssao_blur_attachment.m_format;
+    attachments[0].format = m_out_rtx_denoiser_attachment.m_format;
     attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
     attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -408,18 +405,24 @@ void RtxDenoiserPassVK::createPipelines()
 
 void RtxDenoiserPassVK::createDescriptorLayout()
 {
-    std::array<VkDescriptorSetLayoutBinding, 2> layout_bindings;
+    std::array<VkDescriptorSetLayoutBinding, 3> layout_bindings;
     layout_bindings[0] = {};
     layout_bindings[0].binding = 0;
     layout_bindings[0].descriptorCount = 1;
-    layout_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // ssao
+    layout_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // position-depth
     layout_bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     layout_bindings[1] = {};
     layout_bindings[1].binding = 1;
     layout_bindings[1].descriptorCount = 1;
-	layout_bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // position depth
+	layout_bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // normal
     layout_bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    layout_bindings[2] = {};
+    layout_bindings[2].binding = 2;
+    layout_bindings[2].descriptorCount = 1;
+	layout_bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // rtx
+    layout_bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     VkDescriptorSetLayoutCreateInfo set_attachment_color_info = {};
     set_attachment_color_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -439,7 +442,6 @@ void RtxDenoiserPassVK::createDescriptors()
     //create a descriptor pool that will hold 10 uniform buffers
     std::vector<VkDescriptorPoolSize> sizes =
     {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER        , 10 },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10 }
     };
 
@@ -466,25 +468,29 @@ void RtxDenoiserPassVK::createDescriptors()
         alloc_per_frame_info.descriptorSetCount = 1;
         alloc_per_frame_info.pSetLayouts = &m_descriptor_set_layout;
 
-        vkAllocateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_per_frame_info, &m_descriptor_sets[i].m_textures_descriptor);
+        vkAllocateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), &alloc_per_frame_info, &m_descriptor_sets[i]);
 
         // texutres info
-        std::array<VkDescriptorImageInfo, 2> image_infos;
-        image_infos[0].sampler = m_in_ssao_attachment.m_sampler;
-        image_infos[0].imageView = m_in_ssao_attachment.m_image_view;
+        std::array<VkDescriptorImageInfo, 3> image_infos;
+        image_infos[0].sampler = m_in_position_depth_attachment.m_sampler;
+        image_infos[0].imageView = m_in_position_depth_attachment.m_image_view;
         image_infos[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        image_infos[1].sampler = m_in_position_depth_attachment.m_sampler;
-        image_infos[1].imageView = m_in_position_depth_attachment.m_image_view;
+        image_infos[1].sampler = m_in_normal_attachment.m_sampler;
+        image_infos[1].imageView = m_in_normal_attachment.m_image_view;
         image_infos[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+        image_infos[2].sampler = m_in_rtx_attachment.m_sampler;
+        image_infos[2].imageView = m_in_rtx_attachment.m_image_view;
+        image_infos[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
         // write the descriptor sets
-        std::array<VkWriteDescriptorSet, 2> set_write;
+        std::array<VkWriteDescriptorSet, 3> set_write;
         set_write[0] = {};
         set_write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         set_write[0].pNext = nullptr;
         set_write[0].dstBinding = 0;
-        set_write[0].dstSet = m_descriptor_sets[i].m_textures_descriptor;
+        set_write[0].dstSet = m_descriptor_sets[i];
         set_write[0].descriptorCount = 1;
         set_write[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         set_write[0].pImageInfo = &image_infos[0];
@@ -493,10 +499,19 @@ void RtxDenoiserPassVK::createDescriptors()
         set_write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         set_write[1].pNext = nullptr;
         set_write[1].dstBinding = 1;
-        set_write[1].dstSet = m_descriptor_sets[i].m_textures_descriptor;
+        set_write[1].dstSet = m_descriptor_sets[i];
         set_write[1].descriptorCount = 1;
         set_write[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         set_write[1].pImageInfo = &image_infos[1];
+
+        set_write[2] = {};
+        set_write[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        set_write[2].pNext = nullptr;
+        set_write[2].dstBinding = 2;
+        set_write[2].dstSet = m_descriptor_sets[i];
+        set_write[2].descriptorCount = 1;
+        set_write[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        set_write[2].pImageInfo = &image_infos[2];
 
         vkUpdateDescriptorSets(m_runtime.m_renderer->getDevice()->getLogicalDevice(), set_write.size(), set_write.data(), 0, nullptr);
     }

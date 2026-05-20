@@ -13,6 +13,11 @@
 
 using namespace MiniEngine;
 
+struct RTXPushConstants {
+    uint32_t shadow_mode;
+    uint32_t ray_number;
+    float cone_radius;
+};
 
 RtxPassVK::RtxPassVK(
     const Runtime& i_runtime,
@@ -49,8 +54,8 @@ bool RtxPassVK::initialize()
     //SHADER STAGES
     {
         { // difuse
-            VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader( "./shaders/rtx_v.spv", VK_SHADER_STAGE_VERTEX_BIT   );
-            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader( "./shaders/rtx_f.spv", VK_SHADER_STAGE_FRAGMENT_BIT );
+            VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader( "./shaders/quad.spv", VK_SHADER_STAGE_VERTEX_BIT   );
+            VkShaderModule frag_module = m_runtime.m_shader_registry->loadShader( "./shaders/rtx.spv", VK_SHADER_STAGE_FRAGMENT_BIT );
 
             assert( VK_NULL_HANDLE != vert_module && VK_NULL_HANDLE != frag_module );
 
@@ -148,6 +153,14 @@ VkCommandBuffer RtxPassVK::draw( const Frame& i_frame)
     vkCmdBeginRenderPass( current_cmd, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE );
 
     vkCmdBindPipeline( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline );
+
+    RTXPushConstants push{};
+    push.shadow_mode = m_runtime.getRTXSoftShadows() ? 1 : 0;
+    push.ray_number = m_runtime.getRTXRayNumber();
+    push.cone_radius = m_runtime.getRTXConeRadius();
+
+    vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RTXPushConstants), &push);
+
     vkCmdBindDescriptorSets( current_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts, 0, 1, &m_descriptor_sets[ renderer.getWindow().getCurrentImageId() ], 0, NULL);
     			
     m_plane->draw( current_cmd, 0 );
@@ -288,13 +301,18 @@ void RtxPassVK::createPipelines()
     //create unfiorms 
     createDescriptorLayout();
 
+    VkPushConstantRange push_constant_range{};
+    push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    push_constant_range.offset = 0;
+    push_constant_range.size = 2 * sizeof(RTXPushConstants);
+
     VkPipelineLayoutCreateInfo pipeline_layout_info{};
-    pipeline_layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline_layout_info.setLayoutCount         = 1;
-    pipeline_layout_info.pSetLayouts            = &m_descriptor_set_layout;
-    pipeline_layout_info.pPushConstantRanges    = VK_NULL_HANDLE;
-    pipeline_layout_info.pushConstantRangeCount = 0;
-    pipeline_layout_info.flags                  = 0;
+    pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_info.setLayoutCount = 1;
+    pipeline_layout_info.pSetLayouts = &m_descriptor_set_layout;
+    pipeline_layout_info.pPushConstantRanges = &push_constant_range;
+    pipeline_layout_info.pushConstantRangeCount = 1;
+    pipeline_layout_info.flags = 0;
 
 
     VkPipelineRasterizationStateCreateInfo raster_info{};
