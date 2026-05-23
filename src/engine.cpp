@@ -207,14 +207,12 @@ void Engine::run()
                 {
                     ImGui::SliderFloat("Cone radius", &m_runtime.rtx_cone_radius, 0.001f, 0.2f);
                     ImGui::SliderInt("Number of rays", &m_runtime.rtx_ray_number, 1, 32);
-                }
 
-                ImGui::SliderInt("Kernel size", &m_runtime.rtx_kernel_size, 1, 9);
-                if (m_runtime.rtx_kernel_size % 2 == 0) {
-                    m_runtime.rtx_kernel_size += 1;
+                    ImGui::SliderInt("Kernel size", &m_runtime.rtx_kernel_size, 1, 16);
+                    if (m_runtime.rtx_kernel_size % 2 == 0) {
+                        m_runtime.rtx_kernel_size += 1;
+                    }
                 }
-                ImGui::SliderFloat("Sigma depth", &m_runtime.rtx_sigma_depth, 0.01f, 0.2f);
-                ImGui::SliderFloat("Edge sharpness", &m_runtime.rtx_edge_sharpness, 2.0f, 32.0f);
             }
         }
         if (ImGui::CollapsingHeader("Color settings"))

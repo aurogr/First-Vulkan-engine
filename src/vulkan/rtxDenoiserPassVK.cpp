@@ -16,8 +16,6 @@ using namespace MiniEngine;
 struct RTXDenoiserPushConstants {
     uint32_t soft_shadow;
     uint32_t kernel_size;
-    float sigma_depth;
-    float edge_sharpness;
 };
 
 RtxDenoiserPassVK::RtxDenoiserPassVK(
@@ -194,8 +192,6 @@ VkCommandBuffer RtxDenoiserPassVK::draw(const Frame& i_frame)
     RTXDenoiserPushConstants push{};
     push.soft_shadow = m_runtime.getRTXSoftShadows() ? 1 : 0;
     push.kernel_size = m_runtime.getRTXKernelSize();
-    push.sigma_depth = m_runtime.getRTXSigmaDepth();
-    push.edge_sharpness = m_runtime.getRTXEdgeSharpness();
 
     vkCmdPushConstants(current_cmd, m_pipeline_layouts, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RTXDenoiserPushConstants), &push);
 

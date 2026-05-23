@@ -80,19 +80,29 @@ float nextRandFloat(inout uint seed)
     return float(nextRand(seed)) / 4294967295.0;
 }
 
-vec3 getConeSample(inout uint randSeed, vec3 direction, float coneAngle) {
-    float r = nextRandFloat(randSeed);
-    float phi = nextRandFloat(randSeed) * 2.0 * PI;
+vec3 getVogelSample(inout uint randSeed, vec3 direction, float coneRadius, uint sampleIndex, uint totalSamples) 
+{
+    const float GOLDEN_ANGLE = 2.399963229728653; // 137.5 degrees in radians
+
+    // disk is divided in rings of equal areas (totalSamples), with a theta offset by the golden angle
+    float r = sqrt(float(sampleIndex) + 0.5) / sqrt(float(totalSamples));
+    float theta = float(sampleIndex) * GOLDEN_ANGLE;
+
+    // add random rotation to theta
+    float randomRotation = nextRandFloat(randSeed) * 2.0 * PI;
+    theta += randomRotation;
+
+    // convert from polar coordinates to cartesian
+    float x = coneRadius * r * cos(theta);
+    float y = coneRadius * r * sin(theta);
     
-    float diskRadius = tan(coneAngle) * r;
-    float x = diskRadius * cos(phi);
-    float y = diskRadius * sin(phi);
-    
+    // transform from 2D disk to 3D world space aligned with light direction
     vec3 zAxis = normalize(direction);
     vec3 xAxis = normalize(cross(abs(zAxis.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0), zAxis));
     vec3 yAxis = cross(zAxis, xAxis);
     
-    return normalize(zAxis + x * xAxis + y * yAxis);
+    // return offset position on the physical light disk
+    return zAxis + x * xAxis + y * yAxis;
 }
 
 void main() 
@@ -134,21 +144,19 @@ void main()
 
             if (push.soft_shadows == 1)
             {
+                uvec2 pixelCoords = uvec2(gl_FragCoord.xy);
+                uint randSeed = pixelCoords.x * 1973u + pixelCoords.y * 9277u;
+
                 for (uint j = 0; j < push.soft_shadows_ray_number; j++) // multiple rays
                 {
-                    vec3 perpRay = cross(rayVector, vec3(0.0, 1.0, 0.0));
+                    // get a random offset for the position on disk
+                    vec3 sampleOffset = getVogelSample(randSeed, rayVector, push.cone_radius, j, push.soft_shadows_ray_number);
 
-                    if (perpRay.x == 0 && perpRay.y == 0 && perpRay.z == 0) {
-                        perpRay.x = 1.0;
-                    }
+                    vec3 sampleLightPos = lightPos + sampleOffset;
 
-                    vec3 rayToLightEdge = normalize((lightPos + perpRay * push.cone_radius) - biasedRayOrigin);
-                    float coneAngle = acos(dot(normalize(rayVector), normalize(rayToLightEdge)));
-
-                    uvec2 pixelCoords = uvec2(gl_FragCoord.xy);
-                    uint randSeed = pixelCoords.x * 1973u + pixelCoords.y + j * 1337u;
-
-                    rayDirection = getConeSample(randSeed, rayVector, coneAngle);
+                    vec3 sampleRayVector = sampleLightPos - biasedRayOrigin;
+                    rayLength = length(sampleRayVector);
+                    rayDirection = normalize(sampleRayVector);
                     
                     accumulatedVisibility += evalVisibility(biasedRayOrigin, rayDirection, rayLength);
 

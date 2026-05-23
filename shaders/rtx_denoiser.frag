@@ -11,8 +11,6 @@ layout( location = 0 ) in vec2 f_uvs;
 layout (push_constant) uniform Block {
     uint soft_shadows;
     uint KERNEL_SIZE;
-    float SIGMA_DEPTH;
-    float EDGE_SHARPNESS;
 } push;
 
 layout ( set = 0, binding = 0 ) uniform sampler2D i_position_and_depth;
@@ -22,6 +20,8 @@ layout ( set = 0, binding = 2 ) uniform sampler2D i_rtx_shadows;
 layout(location = 0) out vec4 out_rtx_shadows;
 
 
+const float SIGMA_DEPTH = 0.05;
+const float EDGE_SHARPNESS = 16.0;
 
 float calculateSpatialWeight(float distance, float sigma) {
     return 0.39894 * exp(-0.5 * distance * distance / (sigma * sigma)) / sigma;
@@ -63,7 +63,7 @@ void main()
             vec2 offset = vec2(float(x), float(y)) * texelSize;
             vec2 sampleUV = f_uvs + offset;
 
-            // neighbor propertines
+            // neighbor properties
             vec3 neighborNormal  = texture(i_normal, sampleUV).rgb;
             float neighborDepth  = texture(i_position_and_depth, sampleUV).r;
             float neighborShadow = texture(i_rtx_shadows, sampleUV).r;
@@ -74,11 +74,11 @@ void main()
 
             // depth discontinuity
             float depthDiff = abs(centerDepth - neighborDepth);
-            float w_depth   = exp(-depthDiff / push.SIGMA_DEPTH);
+            float w_depth   = exp(-depthDiff / SIGMA_DEPTH);
 
             // normal angle deviation
             float normalDot = max(dot(centerNormal, neighborNormal), 0.0);
-            float w_normal  = pow(normalDot, push.EDGE_SHARPNESS);
+            float w_normal  = pow(normalDot, EDGE_SHARPNESS);
 
             // combine weights
             float finalWeight = w_spatial * w_depth * w_normal;
