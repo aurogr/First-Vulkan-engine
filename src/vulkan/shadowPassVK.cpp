@@ -38,7 +38,7 @@ bool ShadowPassVK::initialize()
     //SHADER STAGES
     {
         // vertex
-        VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader("./shaders/vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        VkShaderModule vert_module = m_runtime.m_shader_registry->loadShader("./shaders/shadows_vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 
         VkPipelineShaderStageCreateInfo vert_shader{};
         vert_shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -249,13 +249,14 @@ void ShadowPassVK::createRenderPass()
     attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
     attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[0].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
     VkAttachmentReference depth_reference = {};
     depth_reference.attachment = 0;
     depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 
     VkSubpassDescription subpass_description = {};
     subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -270,15 +271,18 @@ void ShadowPassVK::createRenderPass()
 
     // Subpass dependencies for layout transitions
     std::array<VkSubpassDependency, 2> dependencies;
-
     dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass = 0;
+    // We wait for previous fragment shaders to finish reading this map
     dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    // We move into Depth/Stencil testing stages
+    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
     dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    // Correct Access Mask for depth
     dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
+    // 2. Dependency for leaving the pass
     dependencies[1].srcSubpass = 0;
     dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[1].srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
@@ -465,7 +469,7 @@ void ShadowPassVK::createDescriptorLayout()
     per_frame_binding.binding = 0;
     per_frame_binding.descriptorCount = 1;
     per_frame_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    per_frame_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT;
+    per_frame_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT;
 
     VkDescriptorSetLayoutCreateInfo set_per_frame_info = {};
     set_per_frame_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -479,7 +483,7 @@ void ShadowPassVK::createDescriptorLayout()
     per_object_binding.binding = 0;
     per_object_binding.descriptorCount = 1;
     per_object_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    per_object_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    per_object_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
     VkDescriptorSetLayoutCreateInfo set_per_object_info = {};
     set_per_object_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
