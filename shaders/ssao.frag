@@ -71,14 +71,15 @@ void main()
         vec4 offset = vec4(samplePos, 1.0);
         offset = per_frame_data.m_projection * offset;
         offset.xyz /= offset.w;
-        offset.xyz = offset.xyz * 0.5 + 0.5;
+        offset.x = offset.x * 0.5 + 0.5;
+        offset.y = offset.y * 0.5 + 0.5;
 
-        // transform to [0.0, 1.0] range so we can use them to sample the position texture
         vec3 sampleDepthWorld = texture(i_position_and_depth, offset.xy).xyz; 
         float sampleDepth = (per_frame_data.m_view * vec4(sampleDepthWorld, 1.0)).z;
 
         // range check that makes sure a fragment contributes to the occlusion factor if its depth values is within the sample's radius
-        float rangeCheck = smoothstep(0.0, 1.0, RADIUS / abs(fragPos.z - sampleDepth));
+        float dist = abs(fragPos.z - sampleDepth);
+        float rangeCheck = smoothstep(0.0, 1.0, 1.0 - (dist / RADIUS));
         occlusion+= (sampleDepth >= samplePos.z + BIAS ? 1.0 : 0.0) * rangeCheck;  
     }
 
