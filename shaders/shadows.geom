@@ -1,7 +1,7 @@
 #version 460
 
-layout(triangles) in;
-layout(triangle_strip, max_vertices = 30) out;
+layout(triangles, invocations = 10) in;
+layout(triangle_strip, max_vertices = 3) out;
 
 #extension GL_ARB_shader_draw_parameters : enable
 
@@ -34,15 +34,18 @@ layout( std140, set = 0, binding = 0 ) uniform PerFrameData
 
 void main() {
     
-    for (int i = 0; i < per_frame_data.m_number_of_lights; ++i) {
+    int light_index = gl_InvocationID;
 
-       gl_Layer = i;
-
-       for (int j = 0; j < 3; ++j){
-            gl_Position = per_frame_data.m_lights[i].m_view_projection * vec4(g_position[j], 1.0);
-
-            EmitVertex();
-       }
-       EndPrimitive();
+    if (light_index >= per_frame_data.m_number_of_lights) {
+        return;
     }
+
+    gl_Layer = light_index;
+    
+    for (int j = 0; j < 3; ++j){
+        gl_Position = per_frame_data.m_lights[light_index].m_view_projection * vec4(g_position[j], 1.0);
+
+        EmitVertex();
+    }
+    EndPrimitive();
 }
