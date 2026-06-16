@@ -24,7 +24,7 @@ Designed a render pass (`DepthPrePassVK`) that runs before processing the main G
 SSAO aproximattes indirect light, shadowing geometry near other surfaces where rays are expected to stay stuck, not bouncing towards a light source. 
 
 In the engine, two new passess where added for SSAO.
-* **Occlusion Calculation Pass:** Projects random rays in a hemisphere around each pixel to see how "trapped" or blocked it is by nearby geometry, calculating the raw ambient shadows. Because it uses a randomized sampling pattern, the output has a noise pattern.
+* **Occlusion Calculation Pass:** Projects random rays in a hemisphere around each pixel to see how "trapped" or blocked it is by nearby geometry, calculating the raw ambient shadows. Because it uses a randomized sampling pattern, the output has a noise pattern.  
 * **Bilateral Blur Pass (`SSAOBlurPassVK`):** Mitigates the noise via an edge-preserving bilateral depth smoothing filter.
 
 <table align="center">
@@ -41,12 +41,12 @@ In the engine, two new passess where added for SSAO.
 </table>
 
 ## ImGui interface
-Added an interactive developer dashboard using **Dear ImGui** to tweak rendering parameters on the fly. This allows the user to switch between shadow techniques and adjust post-processing effects (like bloom intensity and exposure) in real time to see their immediate visual impact.
+Added an interactive interface using **Dear ImGui** to tweak rendering parameters on the fly. This allows the user to switch between shadow techniques and adjust post-processing effects (like bloom intensity and exposure) in real time to see their immediate visual impact.
 
 ## High Dynamic Range (HDR) Post-Processing Chain
-**ACES Filmic Tone Mapping & Exposure Control:** Replaced basic LDR clamping loops with industry-standard **ACES (Academy Color Encoding System) Filmic**. Enabled exposure control parameter from the mentioned interface.
-**Multi-Pass Ping-Pong Bloom:** Isolated glowing image values exceeding an emissive color threshold into a separate lighting buffer. This texture undergoes a highly efficient multi-pass horizontal and vertical **Gaussian Ping-Pong Blur** sequence (`BloomBlurPassVK`) using paired alternating framebuffers before it is overlaid onto the final color map. The number of ping-pong passes can be changed on the fly from the interface.
-**Chromatic Aberration Pass:** Simulated real-world optical camera lens refraction errors by offset-shifting ultraviolet sample lookups independently across the target Red and Blue channels when evaluating the final color buffer.
+**ACES Filmic Tone Mapping & Exposure Control:** Replaced basic LDR clamping loops with industry-standard **ACES (Academy Color Encoding System) Filmic**. Enabled exposure control parameter from the mentioned interface.  
+**Multi-Pass Ping-Pong Bloom:** Isolated glowing image values exceeding an emissive color threshold into a separate lighting buffer. This texture undergoes a highly efficient multi-pass horizontal and vertical **Gaussian Ping-Pong Blur** (`BloomBlurPassVK`) using alternating framebuffers before it is overlaid onto the final color map. The number of ping-pong passes can be changed on the fly from the interface.  
+**Chromatic Aberration Pass:** Simulated real-world optical camera lens refraction errors.  
 
 <p align="center">
 <img height="400" alt="image" src="https://github.com/user-attachments/assets/ea67d4b0-6250-4c00-af68-ea2996e87a73" />
@@ -57,7 +57,7 @@ Added an interactive developer dashboard using **Dear ImGui** to tweak rendering
 ### 1. Shadow Mapping
 **- Multi-Layered Framebuffer Object (FBO):** Implemented a high-precision multi-layered depth attachment (`mShadowAttachment`) using 2D Array formatting (`VK_FORMAT_D32_SFLOAT`).  
 
-**- Single-Pass Geometry Broadcast:** Leveraged an explicit geometry shader wrapper to replicate mesh primitives onto every active light projection plane within a single drawing sequence, bypassing CPU draw call limitations across multiple scene lights[cite: 354, 355, 365].  
+**- Single-Pass Geometry Broadcast:** Leveraged an explicit geometry shader wrapper to replicate mesh primitives onto every active light projection plane within a single drawing sequence, bypassing CPU draw call limitations across multiple scene lights.  
 
 **- Slope-Dependent Dynamic Bias:** Intercepted surface rasterization artifacts ("shadow acne") by configuring active depth-biasing matrices triggered through real-time push commands (`vkCmdSetDepthBias`) mapping the direct inclination of the incident light source.  
 
