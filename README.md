@@ -43,10 +43,10 @@ In the engine, two new passess where added for SSAO.
 ## ImGui interface
 Added an interactive interface using **Dear ImGui** to tweak rendering parameters on the fly. This allows the user to switch between shadow techniques and adjust post-processing effects (like bloom intensity and exposure) in real time to see their immediate visual impact.
 
-## High Dynamic Range (HDR) Post-Processing Chain
-**ACES Filmic Tone Mapping & Exposure Control:** Replaced basic LDR clamping loops with industry-standard **ACES (Academy Color Encoding System) Filmic**. Enabled exposure control parameter from the mentioned interface.  
-**Multi-Pass Ping-Pong Bloom:** Isolated glowing image values exceeding an emissive color threshold into a separate lighting buffer. This texture undergoes a highly efficient multi-pass horizontal and vertical **Gaussian Ping-Pong Blur** (`BloomBlurPassVK`) using alternating framebuffers before it is overlaid onto the final color map. The number of ping-pong passes can be changed on the fly from the interface.  
-**Chromatic Aberration Pass:** Simulated real-world optical camera lens refraction errors.  
+## High Dynamic Range (HDR) Post-Processing
+- **ACES Filmic Tone Mapping & Exposure Control:** Replaced basic LDR clamping loops with industry-standard **ACES (Academy Color Encoding System) Filmic**. Enabled exposure control parameter from the mentioned interface.  
+- **Multi-Pass Ping-Pong Bloom:** Isolated glowing image values exceeding an emissive color threshold into a separate lighting buffer. This texture undergoes a highly efficient multi-pass horizontal and vertical **Gaussian Ping-Pong Blur** (`BloomBlurPassVK`) using alternating framebuffers before it is overlaid onto the final color map. The number of ping-pong passes can be changed on the fly from the interface.  
+- **Chromatic Aberration Pass:** Simulated real-world optical camera lens refraction errors.  
 
 <p align="center">
 <img height="400" alt="image" src="https://github.com/user-attachments/assets/ea67d4b0-6250-4c00-af68-ea2996e87a73" />
